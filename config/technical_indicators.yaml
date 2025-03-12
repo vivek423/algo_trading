@@ -1,0 +1,29 @@
+# Technical Analysis Parameters
+
+# MACD Parameters
+macd:
+  fast_period: 12
+  slow_period: 26
+  signal_period: 9
+
+# Support and Resistance Parameters
+support_resistance:
+  support_period: 20
+  resistance_period: 20
+
+# ATR Parameters
+atr:
+  window: 14
+
+# EMA Parameters
+ema:
+  period: 20
+
+# Default column names
+columns:
+  open: 'open'
+  high: 'high'
+  low: 'low'
+  close: 'close'
+  volume: 'volume'
+  timestamp: 'timestamp' 
