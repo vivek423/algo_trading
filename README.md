@@ -144,7 +144,7 @@ algo_trading/
 
 ## Copyright Notice
 
-© 2024 Vivek Kapoor. All rights reserved.
+© 2024 DataBull. All rights reserved.
 
 This is proprietary software. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited.
 
