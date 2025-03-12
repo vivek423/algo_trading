@@ -1,0 +1,69 @@
+# Trading configuration
+stocks:
+  - ADANIENT
+  - ADANIPORTS
+  - APOLLOHOSP
+  - ASIANPAINT
+  - AXISBANK
+  - BAJAJ-AUTO
+  - BAJFINANCE
+  - BAJAJFINSV
+  - BEL
+  - BPCL
+  - BHARTIARTL
+  - BRITANNIA
+  - CIPLA
+  - COALINDIA
+  - DRREDDY
+  - EICHERMOT
+  - GRASIM
+  - HCLTECH
+  - HDFCBANK
+  - HDFCLIFE
+  - HEROMOTOCO
+  - HINDALCO
+  - HINDUNILVR
+  - ICICIBANK
+  - ITC
+  - INDUSINDBK
+  - INFY
+  - JSWSTEEL
+  - KOTAKBANK
+  - LT
+  - M&M
+  - MARUTI
+  - NTPC
+  - NESTLEIND
+  - ONGC
+  - POWERGRID
+  - RELIANCE
+  - SBILIFE
+  - SHRIRAMFIN
+  - SBIN
+  - SUNPHARMA
+  - TCS
+  - TATACONSUM
+  - TATAMOTORS
+  - TATASTEEL
+  - TECHM
+  - TITAN
+  - TRENT
+  - ULTRACEMCO
+  - WIPRO
+
+# Data fetching configuration
+interval: "60minute"
+months_of_history: 6
+
+# Asset type filters
+asset_filters:
+  segment: "NSE"
+  instrument_type: "EQ"
+  exchange: "NSE"
+  exclude_symbols:
+    - "-BE"
+    - "-BZ"
+    - "-SM"
+    - "-SG"
+    - "GB"
+    - "SDL" 
