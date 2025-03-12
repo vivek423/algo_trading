@@ -38,11 +38,15 @@ ENV/
 .DS_Store
 
 # Project specific
-# Ignore contents but not directories themselves
+# Ignore contents of directories but keep structure
 logs/*
 !logs/.gitkeep
+
+# Data directory structure
 data/*
 !data/.gitkeep
+!data/inputs
+!data/outputs
 data/inputs/*
 !data/inputs/.gitkeep
 data/outputs/*
