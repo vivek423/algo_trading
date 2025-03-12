@@ -38,8 +38,16 @@ ENV/
 .DS_Store
 
 # Project specific
-logs/
-data/
+# Ignore contents but not directories themselves
+logs/*
+!logs/.gitkeep
+data/*
+!data/.gitkeep
+data/inputs/*
+!data/inputs/.gitkeep
+data/outputs/*
+!data/outputs/.gitkeep
+
 session.json
 *.log
 crontab_config.txt
