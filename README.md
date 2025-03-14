@@ -232,7 +232,3 @@ algo_trading/
 © 2024 DataBull. All rights reserved.
 
 This is proprietary software. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited.
-
-## Disclaimer
-
-This software is for educational purposes only. Use it at your own risk. The authors and contributors are not responsible for any financial losses incurred using this system. 
