@@ -3,6 +3,7 @@ import numpy as np
 from typing import Dict, List, Optional
 import logging
 from datetime import datetime, timedelta
+import pytz
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +44,29 @@ class DataValidator:
             if (pct_change > 0.2).any():  # 20% price change threshold
                 logger.warning(f"{symbol}: Large price changes detected")
 
-            # Check time continuity (for hourly data)
+            # Check time continuity (for daily data)
             time_diff = df.index.to_series().diff()
-            expected_diff = pd.Timedelta(hours=1)
-            if not all(td in [expected_diff, pd.Timedelta(days=1)] for td in time_diff.dropna()):
-                logger.warning(f"{symbol}: Non-continuous timestamps detected")
+            expected_diff = pd.Timedelta(days=1)
+            
+            # Get market days (excluding weekends)
+            is_weekday = df.index.dayofweek < 5
+            weekday_diffs = time_diff[is_weekday].dropna()
+            
+            if not all(td == expected_diff for td in weekday_diffs):
+                logger.warning(f"{symbol}: Non-continuous timestamps detected in trading days")
 
             # Check volume
             if 'volume' in df.columns:
                 if (df['volume'] <= 0).any():
                     logger.error(f"{symbol}: Invalid volume values found")
                     return False
+
+            # Special check for current day's data
+            today = pd.Timestamp.now(tz='Asia/Kolkata').date()
+            if df.index.max().date() == today:
+                market_end = pd.Timestamp.now(tz='Asia/Kolkata').replace(hour=15, minute=30)
+                if pd.Timestamp.now(tz='Asia/Kolkata') < market_end:
+                    logger.info(f"{symbol}: Contains incomplete current day data")
 
             return True
 
@@ -123,16 +136,22 @@ class DataValidator:
         return valid_stocks
 
     @staticmethod
-    def check_data_freshness(df: pd.DataFrame, max_age_hours: int = 24) -> bool:
+    def check_data_freshness(df: pd.DataFrame, max_age_days: int = 5) -> bool:
         """Check if the data is fresh enough"""
         if df is None or df.empty:
             return False
 
         latest_timestamp = df.index.max()
-        age = datetime.now() - latest_timestamp.to_pydatetime()
+        age = datetime.now(pytz.timezone('Asia/Kolkata')) - latest_timestamp.tz_localize('Asia/Kolkata')
         
-        if age > timedelta(hours=max_age_hours):
-            logger.warning(f"Data is {age.total_seconds() / 3600:.1f} hours old")
+        # For daily data, we consider weekdays only
+        business_days = np.busday_count(
+            latest_timestamp.date(),
+            datetime.now(pytz.timezone('Asia/Kolkata')).date()
+        )
+        
+        if business_days > max_age_days:
+            logger.warning(f"Data is {business_days} business days old")
             return False
             
         return True 

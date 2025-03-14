@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import backoff
 import yaml
+import pytz
 
 # Configure logging
 logging.basicConfig(
@@ -136,16 +137,23 @@ class DataFetcher:
         
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     def get_historical_data(self, symbol: str, exchange: str = "NSE", 
-                          months: int = 6, interval: str = "60minute") -> Tuple[str, Optional[pd.DataFrame]]:
+                          months: int = None, interval: str = None) -> Tuple[str, Optional[pd.DataFrame]]:
         """Get historical OHLC data for a given stock with retries"""
         try:
+            # Use config values if not specified
+            if months is None:
+                months = self.config.get('months_of_history', 60)
+            if interval is None:
+                interval = self.config.get('interval', 'day')
+                
             file_name = f"{symbol}_{interval}.csv"
             file_path = os.path.join(self.data_dir, file_name)
             
             # Get current time in India timezone
-            now = datetime.now()
+            ist = pytz.timezone('Asia/Kolkata')
+            now = datetime.now(ist)
             
-            # Initialize from_date as 6 months ago by default
+            # Initialize from_date as months ago
             from_date = (now - timedelta(days=30*months)).replace(tzinfo=None)
             existing_df = None
             
@@ -155,15 +163,31 @@ class DataFetcher:
                 if not existing_df.empty:
                     # Get the latest timestamp from existing data
                     latest_timestamp = existing_df.index.max()
-                    # Set from_date to the latest timestamp + the interval period
-                    if interval == "60minute":
-                        from_date = latest_timestamp + timedelta(hours=1)
-                    elif interval == "day":
-                        from_date = latest_timestamp + timedelta(days=1)
+                    
+                    # For daily data, handle current day differently
+                    if interval == "day":
+                        today = now.date()
+                        if latest_timestamp.date() == today:
+                            # During market hours, remove today's incomplete data
+                            market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+                            market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+                            
+                            if market_open <= now <= market_close:
+                                # Remove today's incomplete data
+                                existing_df = existing_df[existing_df.index.date < today]
+                                logger.info(f"Removed incomplete data for today ({today}) for {symbol}")
+                            elif now > market_close:
+                                # After market hours, keep today's data
+                                from_date = (latest_timestamp + timedelta(days=1)).replace(tzinfo=None)
+                                logger.info(f"Market closed, keeping today's data for {symbol}")
+                        else:
+                            # Set from_date to the day after the last complete day
+                            from_date = (latest_timestamp + timedelta(days=1)).replace(tzinfo=None)
+                    
                     logger.info(f"Found existing data for {symbol}, last timestamp: {latest_timestamp}")
                     
-                    # If we're up to date, return existing data
-                    if from_date >= now:
+                    # If we're up to date and it's not today or not market hours, return existing data
+                    if from_date.date() > now.date():
                         logger.info(f"Data for {symbol} is already up to date")
                         return symbol, existing_df
             
@@ -171,9 +195,9 @@ class DataFetcher:
             to_date = now.replace(tzinfo=None)
             
             # Add delay between requests to avoid rate limiting
-            time.sleep(0.5)  # 500ms delay between requests
+            time.sleep(0.5)
             
-            # Fetch only new data
+            # Fetch new data
             logger.info(f"Fetching new data for {symbol} from {from_date} to {to_date}")
             new_data = self.client.get_historical_data(
                 symbol=symbol,

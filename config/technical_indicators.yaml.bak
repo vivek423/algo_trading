@@ -1,0 +1,28 @@
+atr:
+  window: 10
+bollinger_bands:
+  length: 20
+  std: 1.8
+columns:
+  close: close
+  high: high
+  low: low
+  open: open
+  timestamp: timestamp
+  volume: volume
+ema:
+  period: 10
+macd:
+  fast_period: 8
+  signal_period: 7
+  slow_period: 21
+risk_management:
+  stop_loss_atr_multiplier: 2.0
+  take_profit_atr_multiplier: 3.0
+rsi:
+  length: 20
+  overbought: 65
+  oversold: 25
+support_resistance:
+  resistance_period: 10
+  support_period: 10

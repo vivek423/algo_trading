@@ -2,13 +2,23 @@ import pandas as pd
 import pandas_ta as ta
 import yaml
 import os
-from typing import Optional, Dict, Union
+from typing import Optional, Dict, Union, List
 import logging
+import glob
+import sys
 
 # Configure logging
+log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'technical_analysis.log')
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(log_file)
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -148,6 +158,129 @@ class TechnicalAnalysis:
             logger.error(f"Error calculating EMA: {str(e)}")
             raise
             
+    def calculate_bollinger_bands(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate Bollinger Bands."""
+        try:
+            bb_length = self.config.get('bollinger_bands', {}).get('length', 30)
+            bb_std = self.config.get('bollinger_bands', {}).get('std', 2.0)
+            
+            bb = ta.bbands(df['close'], length=bb_length, std=bb_std)
+            df['bb_lower'] = bb[f'BBL_{bb_length}_{bb_std}']
+            df['bb_middle'] = bb[f'BBM_{bb_length}_{bb_std}']
+            df['bb_upper'] = bb[f'BBU_{bb_length}_{bb_std}']
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error calculating Bollinger Bands: {str(e)}")
+            raise
+    
+    def calculate_rsi(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate RSI."""
+        try:
+            rsi_length = self.config.get('rsi', {}).get('length', 13)
+            
+            df['rsi'] = ta.rsi(df['close'], length=rsi_length)
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error calculating RSI: {str(e)}")
+            raise
+    
+    def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Generate trading signals based on technical indicators."""
+        try:
+            # Get configuration parameters
+            ema_period = self.config['ema']['period']
+            support_period = self.config['support_resistance']['support_period']
+            resistance_period = self.config['support_resistance']['resistance_period']
+            
+            rsi_oversold = self.config.get('rsi', {}).get('oversold', 30)
+            rsi_overbought = self.config.get('rsi', {}).get('overbought', 70)
+
+            # --- MACD-based signal ---
+            bullish_crossover = (df['macd_line'] > df['macd_signal']) & (df['macd_line'].shift(1) <= df['macd_signal'].shift(1))
+            bearish_crossover = (df['macd_line'] < df['macd_signal']) & (df['macd_line'].shift(1) >= df['macd_signal'].shift(1))
+            
+            long_condition = bullish_crossover & \
+                            (df['close'] > df[f'ema_{ema_period}']) & \
+                            (df['close'] > df[f'support_{support_period}']) & \
+                            (df['macd_line'] < 0) & (df['macd_signal'] < 0) & \
+                            (((df['close'] - df[f'support_{support_period}']) / df['close']) <= df['atr_threshold'])
+            
+            short_condition = bearish_crossover & \
+                            (df['close'] < df[f'ema_{ema_period}']) & \
+                            (df['close'] < df[f'resistance_{resistance_period}']) & \
+                            (df['macd_line'] > 0) & (df['macd_signal'] > 0) & \
+                            (((df[f'resistance_{resistance_period}'] - df['close']) / df['close']) <= df['atr_threshold'])
+            
+            df['macd_atr_signal'] = 0
+            df.loc[long_condition, 'macd_atr_signal'] = 1
+            df.loc[short_condition, 'macd_atr_signal'] = -1
+            
+            # --- Bollinger Bands & RSI-based signal ---
+            bollinger_long = (df['close'] < df['bb_lower']) & (df['rsi'] < rsi_oversold)
+            bollinger_short = (df['close'] > df['bb_upper']) & (df['rsi'] > rsi_overbought)
+            
+            df['bollinger_atr_signal'] = 0
+            df.loc[bollinger_long, 'bollinger_atr_signal'] = 1
+            df.loc[bollinger_short, 'bollinger_atr_signal'] = -1
+            
+            # --- Combine signals ---
+            def final_signal(row):
+                # Compute indicator-based signal
+                macd_sig = row['macd_atr_signal']
+                boll_sig = row['bollinger_atr_signal']
+                total = macd_sig + boll_sig
+                
+                if total < 0:
+                    return -1  # Sell
+                elif total == 0:
+                    # If both individual signals are zero, then hold; otherwise, treat as buy
+                    if row['macd_atr_signal'] == 0 and row['bollinger_atr_signal'] == 0:
+                        return 0  # Hold
+                    else:
+                        return 1  # Buy
+                else:
+                    return 1  # Buy
+            
+            df['signal_combined'] = df.apply(final_signal, axis=1)
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error generating signals: {str(e)}")
+            raise
+    
+    def calculate_stop_loss_take_profit(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate stop loss and take profit levels based on ATR for buy signals only."""
+        try:
+            # Get ATR multipliers from config or use defaults
+            sl_atr_multiplier = self.config.get('risk_management', {}).get('stop_loss_atr_multiplier', 2.0)
+            tp_atr_multiplier = self.config.get('risk_management', {}).get('take_profit_atr_multiplier', 3.0)
+            
+            # Initialize columns with NaN
+            df['stop_loss'] = float('nan')
+            df['take_profit'] = float('nan')
+            
+            # Calculate stop loss and take profit only for buy signals
+            buy_signals = df['signal_combined'] == 1
+            
+            # For buy signals: stop loss is entry price - ATR*multiplier, take profit is entry price + ATR*multiplier
+            if buy_signals.any():
+                df.loc[buy_signals, 'stop_loss'] = df.loc[buy_signals, 'close'] - (df.loc[buy_signals, 'atr'] * sl_atr_multiplier)
+                df.loc[buy_signals, 'take_profit'] = df.loc[buy_signals, 'close'] + (df.loc[buy_signals, 'atr'] * tp_atr_multiplier)
+                
+                # Calculate risk-reward ratio for buy signals
+                df.loc[buy_signals, 'risk_reward_ratio'] = (df.loc[buy_signals, 'take_profit'] - df.loc[buy_signals, 'close']) / (df.loc[buy_signals, 'close'] - df.loc[buy_signals, 'stop_loss'])
+            
+            return df
+            
+        except Exception as e:
+            logger.error(f"Error calculating stop loss and take profit: {str(e)}")
+            raise
+    
     def calculate_all_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate all technical indicators."""
         try:
@@ -155,33 +288,104 @@ class TechnicalAnalysis:
             df = self.calculate_support_resistance(df)
             df = self.calculate_atr(df)
             df = self.calculate_ema(df)
+            df = self.calculate_bollinger_bands(df)
+            df = self.calculate_rsi(df)
+            df = self.generate_signals(df)
+            df = self.calculate_stop_loss_take_profit(df)
+            
+            # Drop NaN values from calculations
+            df.dropna(subset=[
+                f'ema_{self.config["ema"]["period"]}', 
+                'macd_line', 'macd_signal', 'macd_hist',
+                f'support_{self.config["support_resistance"]["support_period"]}', 
+                f'resistance_{self.config["support_resistance"]["resistance_period"]}',
+                'atr', 'atr_threshold',
+                'bb_lower', 'bb_middle', 'bb_upper',
+                'rsi'
+            ], inplace=True)
             
             return df
             
         except Exception as e:
             logger.error(f"Error calculating indicators: {str(e)}")
             raise
-            
+
 def main():
-    """Example usage of TechnicalAnalysis class."""
+    """Main function to run technical analysis."""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Calculate technical indicators for OHLC data')
-    parser.add_argument('--input', type=str, required=True, help='Input CSV file path')
-    parser.add_argument('--output', type=str, required=True, help='Output CSV file path')
-    parser.add_argument('--config', type=str, help='Path to configuration file')
+    parser = argparse.ArgumentParser(description='Calculate technical indicators for stock data.')
+    parser.add_argument('--input', '-i', help='Path to input CSV file with OHLC data')
+    parser.add_argument('--output', '-o', help='Path to output CSV file for indicators')
+    parser.add_argument('--config', '-c', help='Path to technical indicators configuration file')
+    parser.add_argument('--all', '-a', action='store_true', help='Process all stocks from trading config')
+    parser.add_argument('--trading-config', '-t', default='config/trading_config.yaml', 
+                        help='Path to trading configuration file (used with --all)')
+    parser.add_argument('--input-dir', '-d', default='data/inputs/', 
+                        help='Directory containing input CSV files (used with --all)')
+    
     args = parser.parse_args()
     
-    # Initialize technical analysis
-    ta_analyzer = TechnicalAnalysis(config_path=args.config)
+    # Validate arguments
+    if args.all:
+        if args.input or not args.output:
+            parser.error("When using --all, don't specify --input but --output is required")
+    else:
+        if not args.input or not args.output:
+            parser.error("--input and --output are required when not using --all")
     
-    # Load and process data
-    df = ta_analyzer.load_data(args.input)
-    df = ta_analyzer.calculate_all_indicators(df)
-    
-    # Save results
-    df.to_csv(args.output)
-    logger.info(f"Saved technical indicators to {args.output}")
+    try:
+        # Initialize technical analysis
+        ta = TechnicalAnalysis(config_path=args.config)
+        
+        if args.all:
+            # Process all stocks from trading config
+            trading_config_path = args.trading_config
+            with open(trading_config_path, 'r') as f:
+                trading_config = yaml.safe_load(f)
+            
+            stocks = trading_config.get('stocks', [])
+            interval = trading_config.get('interval', '60minute')
+            
+            all_results = []
+            
+            for stock in stocks:
+                input_file = os.path.join(args.input_dir, f"{stock}_{interval}.csv")
+                if not os.path.exists(input_file):
+                    logger.warning(f"Input file for {stock} not found: {input_file}")
+                    continue
+                
+                logger.info(f"Processing {stock}...")
+                df = ta.load_data(input_file)
+                df_with_indicators = ta.calculate_all_indicators(df)
+                
+                # Add stock symbol column
+                df_with_indicators['symbol'] = stock
+                
+                all_results.append(df_with_indicators)
+            
+            if all_results:
+                # Combine all results
+                combined_df = pd.concat(all_results)
+                combined_df.to_csv(args.output)
+                logger.info(f"Combined technical indicators for {len(all_results)} stocks saved to {args.output}")
+            else:
+                logger.error("No stock data was processed. Check input directory and stock symbols.")
+        else:
+            # Process single stock
+            df = ta.load_data(args.input)
+            df_with_indicators = ta.calculate_all_indicators(df)
+            
+            # Extract stock symbol from filename
+            stock_symbol = os.path.basename(args.input).split('_')[0]
+            df_with_indicators['symbol'] = stock_symbol
+            
+            df_with_indicators.to_csv(args.output)
+            logger.info(f"Technical indicators saved to {args.output}")
+        
+    except Exception as e:
+        logger.error(f"Error processing technical indicators: {str(e)}")
+        raise
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 
