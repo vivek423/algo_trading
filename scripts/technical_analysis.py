@@ -30,14 +30,27 @@ class TechnicalAnalysis:
         Args:
             config_path: Path to YAML configuration file. If None, uses default path.
         """
-        if config_path is None:
-            config_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), 
-                'config', 
-                'technical_indicators.yaml'
-            )
+        # Default config path as fallback
+        self.default_config_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            'config', 
+            'technical_indicators.yaml'
+        )
         
-        self.config = self._load_config(config_path)
+        if config_path is None:
+            config_path = self.default_config_path
+        
+        try:
+            self.config = self._load_config(config_path)
+        except Exception as e:
+            # If loading the specified config fails, try the default
+            if config_path != self.default_config_path:
+                logger.warning(f"Failed to load config from {config_path}: {str(e)}. Falling back to default config.")
+                self.config = self._load_config(self.default_config_path)
+            else:
+                # If default config also fails, re-raise the exception
+                raise
+                
         self.validate_config()
         
     def _load_config(self, config_path: str) -> Dict:
@@ -335,34 +348,54 @@ def main():
             parser.error("--input and --output are required when not using --all")
     
     try:
-        # Initialize technical analysis
-        ta = TechnicalAnalysis(config_path=args.config)
-        
         if args.all:
             # Process all stocks from trading config
             trading_config_path = args.trading_config
             with open(trading_config_path, 'r') as f:
                 trading_config = yaml.safe_load(f)
             
-            stocks = trading_config.get('stocks', [])
-            interval = trading_config.get('interval', '60minute')
+            # Support both old and new format for stocks configuration
+            if isinstance(trading_config['stocks'], list):
+                if trading_config['stocks'] and isinstance(trading_config['stocks'][0], dict):
+                    # New format - list of dicts with symbol and config
+                    stocks_config = trading_config['stocks']
+                else:
+                    # Old format - just a list of symbols
+                    stocks_config = [{'symbol': symbol, 'config': None} for symbol in trading_config['stocks']]
+            else:
+                logger.error("Invalid stocks configuration format in trading_config.yaml")
+                return
             
+            interval = trading_config.get('interval', '60minute')
             all_results = []
             
-            for stock in stocks:
-                input_file = os.path.join(args.input_dir, f"{stock}_{interval}.csv")
+            for stock_entry in stocks_config:
+                symbol = stock_entry['symbol']
+                config_path = stock_entry.get('config')
+                
+                input_file = os.path.join(args.input_dir, f"{symbol}_{interval}.csv")
                 if not os.path.exists(input_file):
-                    logger.warning(f"Input file for {stock} not found: {input_file}")
+                    logger.warning(f"Input file for {symbol} not found: {input_file}")
                     continue
                 
-                logger.info(f"Processing {stock}...")
-                df = ta.load_data(input_file)
-                df_with_indicators = ta.calculate_all_indicators(df)
+                logger.info(f"Processing {symbol}...")
                 
-                # Add stock symbol column
-                df_with_indicators['symbol'] = stock
-                
-                all_results.append(df_with_indicators)
+                try:
+                    # Initialize technical analysis with stock-specific config if available
+                    # The TechnicalAnalysis class will handle missing files by falling back to default
+                    ta = TechnicalAnalysis(config_path=config_path)
+                    
+                    df = ta.load_data(input_file)
+                    df_with_indicators = ta.calculate_all_indicators(df)
+                    
+                    # Add stock symbol column
+                    df_with_indicators['symbol'] = symbol
+                    
+                    all_results.append(df_with_indicators)
+                except Exception as e:
+                    logger.error(f"Error processing {symbol}: {str(e)}")
+                    # Continue with next stock instead of crashing
+                    continue
             
             if all_results:
                 # Combine all results
@@ -373,6 +406,9 @@ def main():
                 logger.error("No stock data was processed. Check input directory and stock symbols.")
         else:
             # Process single stock
+            # Initialize technical analysis
+            ta = TechnicalAnalysis(config_path=args.config)
+            
             df = ta.load_data(args.input)
             df_with_indicators = ta.calculate_all_indicators(df)
             

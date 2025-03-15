@@ -8,6 +8,7 @@ import argparse
 from dataclasses import dataclass
 import yaml
 import os
+from technical_analysis import TechnicalAnalysis
 
 # Configure logging
 log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
@@ -472,6 +473,34 @@ class PerformanceAnalyzer:
             
         return pd.DataFrame.from_dict(yearly_metrics, orient='index')
         
+def load_stock_configs(trading_config_path: str) -> Dict[str, str]:
+    """
+    Load stock-specific configuration paths from trading config.
+    
+    Args:
+        trading_config_path: Path to trading configuration file
+        
+    Returns:
+        Dictionary mapping stock symbols to their config paths
+    """
+    try:
+        with open(trading_config_path, 'r') as f:
+            trading_config = yaml.safe_load(f)
+            
+        # Check if trading config has the new format
+        stock_configs = {}
+        if trading_config['stocks'] and isinstance(trading_config['stocks'][0], dict):
+            for stock_entry in trading_config['stocks']:
+                if 'symbol' in stock_entry and 'config' in stock_entry:
+                    stock_configs[stock_entry['symbol']] = stock_entry['config']
+        
+        logger.info(f"Loaded {len(stock_configs)} stock-specific configurations")
+        return stock_configs
+        
+    except Exception as e:
+        logger.error(f"Error loading stock configurations: {str(e)}")
+        return {}
+
 def main():
     parser = argparse.ArgumentParser(description='Analyze trading performance')
     parser.add_argument('--input', '-i', required=True, help='Path to input CSV file with technical indicators')
@@ -479,6 +508,8 @@ def main():
     parser.add_argument('--years', '-y', nargs='+', type=int, help='List of years to analyze')
     parser.add_argument('--max-investment', '-m', type=float, default=5000, help='Maximum investment per trade')
     parser.add_argument('--initial-capital', '-c', type=float, default=10000, help='Initial capital for portfolio')
+    parser.add_argument('--trading-config', '-t', default='config/trading_config.yaml', help='Path to trading configuration')
+    parser.add_argument('--use-stock-configs', '-s', action='store_true', help='Use stock-specific configurations')
     
     args = parser.parse_args()
     
@@ -486,17 +517,48 @@ def main():
         # Load data
         df = pd.read_csv(args.input, parse_dates=['timestamp'], index_col='timestamp')
         
-        # Initialize analyzer
-        analyzer = PerformanceAnalyzer(max_investment_per_trade=args.max_investment)
+        # Load stock-specific configurations if enabled
+        stock_configs = {}
+        if args.use_stock_configs:
+            stock_configs = load_stock_configs(args.trading_config)
+            
+        # Process by stock, with stock-specific configs if available
+        all_trades = []
         
-        # Process signals and generate trades
-        trades = analyzer.process_signals(df)
+        # Group by symbol and process each stock separately
+        for symbol, stock_data in df.groupby('symbol'):
+            logger.info(f"Processing {symbol} with {len(stock_data)} data points")
+            
+            # Use stock-specific config if available
+            config_path = stock_configs.get(symbol) if args.use_stock_configs else None
+            
+            # If a stock-specific config is available, use it to recalculate indicators
+            if config_path and os.path.exists(config_path):
+                logger.info(f"Using stock-specific configuration for {symbol}: {config_path}")
+                
+                # Initialize technical analysis with stock config
+                ta = TechnicalAnalysis(config_path=config_path)
+                
+                # Recalculate indicators using stock-specific parameters
+                stock_data = ta.calculate_all_indicators(stock_data)
+            
+            # Initialize performance analyzer for this stock
+            analyzer = PerformanceAnalyzer(max_investment_per_trade=args.max_investment)
+            
+            # Process signals and generate trades
+            stock_trades = analyzer.process_signals(stock_data)
+            all_trades.extend(stock_trades)
+            
+            logger.info(f"Generated {len(stock_trades)} trades for {symbol}")
+        
+        logger.info(f"Total trades across all stocks: {len(all_trades)}")
         
         # Calculate overall performance metrics
-        overall_metrics = analyzer.calculate_performance_metrics(trades, initial_capital=args.initial_capital, years=args.years)
+        analyzer = PerformanceAnalyzer(max_investment_per_trade=args.max_investment)
+        overall_metrics = analyzer.calculate_performance_metrics(all_trades, initial_capital=args.initial_capital, years=args.years)
         
         # Generate yearly summary
-        yearly_summary = analyzer.generate_yearly_summary(trades, initial_capital=args.initial_capital)
+        yearly_summary = analyzer.generate_yearly_summary(all_trades, initial_capital=args.initial_capital)
         
         # Save reports
         os.makedirs(args.output, exist_ok=True)
@@ -510,7 +572,7 @@ def main():
         
         # Calculate capital allocation for each trade
         # Sort trades chronologically
-        sorted_trades = sorted(trades, key=lambda t: t.entry_date)
+        sorted_trades = sorted(all_trades, key=lambda t: t.entry_date)
         cash_balance = args.initial_capital
         additional_capital_needed = []
         capital_after_trade = []
@@ -573,6 +635,16 @@ def main():
         print(f"Maximum Drawdown: {overall_metrics['max_drawdown']:.2f}%")
         print(f"Average Capital Utilization: {overall_metrics['avg_capital_utilization']:.2f}%")
         print(f"Maximum Concurrent Trades: {overall_metrics['max_concurrent_trades']}")
+        
+        # Print stock-specific performance if using stock configs
+        if args.use_stock_configs and len(stock_configs) > 0:
+            print("\nStock-Specific Performance:")
+            # Group trades by symbol
+            for symbol, trades in pd.DataFrame(sorted_trades).groupby('symbol'):
+                if len(trades) > 0:
+                    win_rate = len(trades[trades['pnl'] > 0]) / len(trades) * 100 if len(trades) > 0 else 0
+                    total_pnl = sum(trades['pnl'].dropna())
+                    print(f"{symbol}: {len(trades)} trades, Win Rate: {win_rate:.2f}%, P&L: ₹{total_pnl:,.2f}")
         
     except Exception as e:
         logger.error(f"Error in performance analysis: {str(e)}")

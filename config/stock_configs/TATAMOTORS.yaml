@@ -1,0 +1,45 @@
+# Technical Analysis Parameters - Optimized via Grid Search for TATAMOTORS
+
+# MACD Parameters
+macd:
+  fast_period: 8
+  slow_period: 21
+  signal_period: 7
+
+# Support and Resistance Parameters
+support_resistance:
+  support_period: 10
+  resistance_period: 10
+
+# ATR Parameters
+atr:
+  window: 10
+
+# EMA Parameters
+ema:
+  period: 10
+
+# Bollinger Bands Parameters
+bollinger_bands:
+  length: 20
+  std: 2.0
+
+# RSI Parameters
+rsi:
+  length: 14
+  oversold: 25
+  overbought: 65
+
+# Risk Management Parameters
+risk_management:
+  stop_loss_atr_multiplier: 1.5
+  take_profit_atr_multiplier: 3.0
+
+# Default column names
+columns:
+  open: 'open'
+  high: 'high'
+  low: 'low'
+  close: 'close'
+  volume: 'volume'
+  timestamp: 'timestamp'

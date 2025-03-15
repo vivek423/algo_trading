@@ -1,69 +1,114 @@
-# Trading configuration
-stocks:
-  - ADANIENT
-  # - ADANIPORTS
-  # - APOLLOHOSP
-  # - ASIANPAINT
-  # - AXISBANK
-  # - BAJAJ-AUTO
-  # - BAJFINANCE
-  # - BAJAJFINSV
-  # - BEL
-  # - BPCL
-  # - BHARTIARTL
-  # - BRITANNIA
-  # - CIPLA
-  # - COALINDIA
-  # - DRREDDY
-  # - EICHERMOT
-  # - GRASIM
-  # - HCLTECH
-  # - HDFCBANK
-  # - HDFCLIFE
-  # - HEROMOTOCO
-  # - HINDALCO
-  # - HINDUNILVR
-  # - ICICIBANK
-  # - ITC
-  # - INDUSINDBK
-  # - INFY
-  # - JSWSTEEL
-  # - KOTAKBANK
-  # - LT
-  # - M&M
-  # - MARUTI
-  # - NTPC
-  # - NESTLEIND
-  # - ONGC
-  # - POWERGRID
-  # - RELIANCE
-  # - SBILIFE
-  # - SHRIRAMFIN
-  # - SBIN
-  # - SUNPHARMA
-  # - TCS
-  # - TATACONSUM
-  # - TATAMOTORS
-  # - TATASTEEL
-  # - TECHM
-  # - TITAN
-  # - TRENT
-  # - ULTRACEMCO
-  # - WIPRO
-
-# Data fetching configuration
-interval: "day"
-months_of_history: 60
-
-# Asset type filters
 asset_filters:
-  segment: "NSE"
-  instrument_type: "EQ"
-  exchange: "NSE"
+  exchange: NSE
   exclude_symbols:
-    - "-BE"
-    - "-BZ"
-    - "-SM"
-    - "-SG"
-    - "GB"
-    - "SDL" 
+  - -BE
+  - -BZ
+  - -SM
+  - -SG
+  - GB
+  - SDL
+  instrument_type: EQ
+  segment: NSE
+interval: day
+months_of_history: 60
+stocks:
+- config: config/stock_configs/ADANIENT.yaml
+  symbol: ADANIENT
+- config: config/stock_configs/ADANIPORTS.yaml
+  symbol: ADANIPORTS
+- config: config/stock_configs/APOLLOHOSP.yaml
+  symbol: APOLLOHOSP
+- config: config/stock_configs/ASIANPAINT.yaml
+  symbol: ASIANPAINT
+- config: config/stock_configs/AXISBANK.yaml
+  symbol: AXISBANK
+- config: config/stock_configs/BAJAJ-AUTO.yaml
+  symbol: BAJAJ-AUTO
+- config: config/stock_configs/BAJFINANCE.yaml
+  symbol: BAJFINANCE
+- config: config/stock_configs/BAJAJFINSV.yaml
+  symbol: BAJAJFINSV
+- config: config/stock_configs/BEL.yaml
+  symbol: BEL
+- config: config/stock_configs/BPCL.yaml
+  symbol: BPCL
+- config: config/stock_configs/BHARTIARTL.yaml
+  symbol: BHARTIARTL
+- config: config/stock_configs/BRITANNIA.yaml
+  symbol: BRITANNIA
+- config: config/stock_configs/CIPLA.yaml
+  symbol: CIPLA
+- config: config/stock_configs/COALINDIA.yaml
+  symbol: COALINDIA
+- config: config/stock_configs/DRREDDY.yaml
+  symbol: DRREDDY
+- config: config/stock_configs/EICHERMOT.yaml
+  symbol: EICHERMOT
+- config: config/stock_configs/GRASIM.yaml
+  symbol: GRASIM
+- config: config/stock_configs/HCLTECH.yaml
+  symbol: HCLTECH
+- config: config/stock_configs/HDFCBANK.yaml
+  symbol: HDFCBANK
+- config: config/stock_configs/HDFCLIFE.yaml
+  symbol: HDFCLIFE
+- config: config/stock_configs/HEROMOTOCO.yaml
+  symbol: HEROMOTOCO
+- config: config/stock_configs/HINDALCO.yaml
+  symbol: HINDALCO
+- config: config/stock_configs/HINDUNILVR.yaml
+  symbol: HINDUNILVR
+- config: config/stock_configs/ICICIBANK.yaml
+  symbol: ICICIBANK
+- config: config/stock_configs/ITC.yaml
+  symbol: ITC
+- config: config/stock_configs/INDUSINDBK.yaml
+  symbol: INDUSINDBK
+- config: config/stock_configs/INFY.yaml
+  symbol: INFY
+- config: config/stock_configs/JSWSTEEL.yaml
+  symbol: JSWSTEEL
+- config: config/stock_configs/KOTAKBANK.yaml
+  symbol: KOTAKBANK
+- config: config/stock_configs/LT.yaml
+  symbol: LT
+- config: config/stock_configs/M&M.yaml
+  symbol: M&M
+- config: config/stock_configs/MARUTI.yaml
+  symbol: MARUTI
+- config: config/stock_configs/NTPC.yaml
+  symbol: NTPC
+- config: config/stock_configs/NESTLEIND.yaml
+  symbol: NESTLEIND
+- config: config/stock_configs/ONGC.yaml
+  symbol: ONGC
+- config: config/stock_configs/POWERGRID.yaml
+  symbol: POWERGRID
+- config: config/stock_configs/RELIANCE.yaml
+  symbol: RELIANCE
+- config: config/stock_configs/SBILIFE.yaml
+  symbol: SBILIFE
+- config: config/stock_configs/SHRIRAMFIN.yaml
+  symbol: SHRIRAMFIN
+- config: config/stock_configs/SBIN.yaml
+  symbol: SBIN
+- config: config/stock_configs/SUNPHARMA.yaml
+  symbol: SUNPHARMA
+- config: config/stock_configs/TCS.yaml
+  symbol: TCS
+- config: config/stock_configs/TATACONSUM.yaml
+  symbol: TATACONSUM
+- config: config/stock_configs/TATAMOTORS.yaml
+  symbol: TATAMOTORS
+- config: config/stock_configs/TATASTEEL.yaml
+  symbol: TATASTEEL
+- config: config/stock_configs/TECHM.yaml
+  symbol: TECHM
+- config: config/stock_configs/TITAN.yaml
+  symbol: TITAN
+- config: config/stock_configs/TRENT.yaml
+  symbol: TRENT
+- config: config/stock_configs/ULTRACEMCO.yaml
+  symbol: ULTRACEMCO
+- config: config/stock_configs/WIPRO.yaml
+  symbol: WIPRO
