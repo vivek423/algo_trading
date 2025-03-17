@@ -1,0 +1,386 @@
+metrics:
+  additional_capital_required: 0
+  avg_capital_utilization: 0
+  avg_trade_duration: 12.925925925925926
+  cagr: !!python/object/apply:numpy.core.multiarray.scalar
+  - &id001 !!python/object/apply:numpy.dtype
+    args:
+    - f8
+    - false
+    - true
+    state: !!python/tuple
+    - 3
+    - <
+    - null
+    - null
+    - null
+    - -1
+    - -1
+    - 0
+  - !!binary |
+    He9rslCockA=
+  final_capital: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    3U32lxxpzEA=
+  initial_capital: 10000.0
+  losing_trades: 7
+  max_capital_used: 10000.0
+  max_concurrent_trades: 11
+  max_drawdown: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    vzUu/nFgEEA=
+  realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    upvsLznCsUA=
+  sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+  - *id001
+  - !!binary |
+    fOkTkSD5sr8=
+  total_trades: 27
+  unrealized_pnl: 0
+  win_rate: 74.07407407407408
+  winning_trades: 20
+stock_performance:
+  ADANIPORTS:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      dsMjk8JlSEA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      QP/WtGtWeUA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      Q6cJZcGTFUA=
+    trades: 1
+    win_rate: 100.0
+  ASIANPAINT:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      +LjYYPIEOkA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      IGArS/rXcEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      IGQNdlF5/j8=
+    trades: 1
+    win_rate: 100.0
+  AXISBANK:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      QyWtsiXOQEA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      SskenPZfckA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      3/pXbstOAUA=
+    trades: 1
+    win_rate: 100.0
+  BAJAJ-AUTO:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      +OjTu1NpLMA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      oJmZmZkBY8A=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      ceSvoLnyF8A=
+    trades: 1
+    win_rate: 0.0
+  BEL:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      U3MoaT9BR0A=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      b/Rdj/BUeEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      Ubjws6hTDkA=
+    trades: 1
+    win_rate: 100.0
+  BRITANNIA:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      oFhRmKwzNkA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      wL26NuJQaUA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      /XdB0Tx90z8=
+    trades: 1
+    win_rate: 100.0
+  COALINDIA:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      8MXMQZK5/D8=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      sDBAhcKAREA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      rwy1nf+8578=
+    trades: 2
+    win_rate: 50.0
+  GRASIM:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      8jAxrwj8QkA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      QJFglYNxdEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      N48JBliwCEA=
+    trades: 1
+    win_rate: 100.0
+  HDFCBANK:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      6rsaIbWhPEA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      uFx79Vbfb0A=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      To5AR9js8j8=
+    trades: 1
+    win_rate: 100.0
+  HDFCLIFE:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      bVUfj7G7NsA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      foLRNV5DcsA=
+    sharpe_ratio: -10
+    trades: 1
+    win_rate: 0.0
+  HEROMOTOCO:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      UPTv4Z0A7j8=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      gJbFO+DyM0A=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      zgNSZ1OP478=
+    trades: 2
+    win_rate: 50.0
+  INDUSINDBK:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      VuMpVUuSIkA=
+    max_drawdown: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      rmXoiFnV8j8=
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      DITH8IKMaEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      LV0WVJPp5b8=
+    trades: 3
+    win_rate: 66.66666666666666
+  NTPC:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      Te4T7njoUEA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AGcUdnCRgEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      Su7gOC8FHEA=
+    trades: 1
+    win_rate: 100.0
+  POWERGRID:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      NJbMtUM/RUA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      1ljsP6CHdkA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      w8HDfdzzCkA=
+    trades: 1
+    win_rate: 100.0
+  SBIN:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      4ok8Ax1IR0A=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      nyGEOBLKgEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      DzLyBO6VFEA=
+    trades: 2
+    win_rate: 100.0
+  SHRIRAMFIN:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      GOyh2Y8/UEA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      a9NOL7opgUA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      gPCJ6S4NHkA=
+    trades: 1
+    win_rate: 100.0
+  SUNPHARMA:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      kR081xt2MUA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      sKT+z7hHZEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      wMfD2ozp4z8=
+    trades: 1
+    win_rate: 100.0
+  TATACONSUM:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      tqBgdd3qQEA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      NC35c5l7ckA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      QMdvbLfeBEA=
+    trades: 1
+    win_rate: 100.0
+  TATASTEEL:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      sJZN3Z6+NMA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      6UMeaAO6bMA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      b6tgXyZPIcA=
+    trades: 1
+    win_rate: 0.0
+  TCS:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      TPeYaqd7KcA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      MCfh/dzrYMA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      z5i7rJ6jAMA=
+    trades: 2
+    win_rate: 50.0
+  TRENT:
+    cagr: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      4mj0bmmFUEA=
+    max_drawdown: 0
+    realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      eKl4nFRDgEA=
+    sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+    - *id001
+    - !!binary |
+      mYVhZY5KFEA=
+    trades: 1
+    win_rate: 100.0
+test_run_timestamp: '2025-03-16 16:01:19'
+testing_period:
+  end_date: '2025-03-13'
+  start_date: '2024-10-23'
