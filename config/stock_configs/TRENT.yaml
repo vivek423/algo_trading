@@ -22,7 +22,7 @@ ema:
 # Bollinger Bands Parameters
 bollinger_bands:
   length: 20
-  std: 2.0
+  std: 1.8
 
 # RSI Parameters
 rsi:

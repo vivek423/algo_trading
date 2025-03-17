@@ -3,13 +3,14 @@ import numpy as np
 import yaml
 import argparse
 from itertools import product
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional, Union
 import logging
 from datetime import datetime
 import os
 import sys
 import tempfile
 import traceback
+import glob
 from technical_analysis import TechnicalAnalysis
 from performance_analyzer import PerformanceAnalyzer, Trade
 
@@ -41,52 +42,46 @@ def setup_logging(output_dir: str):
     return logger
 
 class GridSearchOptimizer:
-    def __init__(self, data_path: str, output_dir: str, max_investment_per_trade: float = 5000, initial_capital: float = 10000):
+    def __init__(self, 
+                 data_path: Optional[str] = None, 
+                 output_dir: str = "logs/grid_search",
+                 max_investment_per_trade: float = 5000, 
+                 initial_capital: float = 10000,
+                 input_dir: Optional[str] = None,
+                 stocks: Optional[List[str]] = None,
+                 trading_config: Optional[str] = None):
         """
         Initialize GridSearchOptimizer.
         
         Args:
-            data_path: Path to CSV file containing combined OHLC data for all stocks
+            data_path: Path to CSV file containing combined OHLC data for all stocks (optional)
             output_dir: Directory to save optimization results
             max_investment_per_trade: Maximum amount to invest per trade
             initial_capital: Initial capital for the portfolio
+            input_dir: Directory containing individual stock OHLC data files (alternative to data_path)
+            stocks: List of stock symbols to process (if not specified, will process all available)
+            trading_config: Path to trading configuration file (to get list of stocks if not specified)
         """
         self.data_path = data_path
+        self.input_dir = input_dir
         self.output_dir = output_dir
         self.max_investment = max_investment_per_trade
         self.initial_capital = initial_capital
+        self.specific_stocks = stocks
+        self.trading_config_path = trading_config
         self.logger = setup_logging(output_dir)
         
-        self.logger.info(f"Initializing GridSearchOptimizer with data from {data_path}")
+        self.logger.info(f"Initializing GridSearchOptimizer")
         self.logger.info(f"Max investment per trade: {max_investment_per_trade}")
         self.logger.info(f"Initial capital: {initial_capital}")
         
-        # Load and validate data
-        try:
-            self.data = pd.read_csv(data_path)
-            self.logger.debug(f"Raw data columns: {self.data.columns.tolist()}")
-            self.logger.debug(f"Raw data sample:\n{self.data.head()}")
-            
-            # Ensure required columns exist
-            required_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'symbol']
-            missing_columns = [col for col in required_columns if col not in self.data.columns]
-            if missing_columns:
-                raise ValueError(f"Missing required columns: {missing_columns}")
-            
-            self.data['timestamp'] = pd.to_datetime(self.data['timestamp'])
-            self.data = self.data.sort_values(['symbol', 'timestamp'])
-            
-            # Log data info
-            self.logger.info(f"Successfully loaded data from {data_path}")
-            self.logger.info(f"Data shape: {self.data.shape}")
-            self.logger.info(f"Number of unique stocks: {len(self.data['symbol'].unique())}")
-            self.logger.info(f"Date range: {self.data['timestamp'].min()} to {self.data['timestamp'].max()}")
-            self.logger.info(f"Number of unique dates: {len(self.data['timestamp'].unique())}")
-            
-        except Exception as e:
-            self.logger.error(f"Error loading data: {str(e)}")
-            self.logger.error(f"Traceback: {traceback.format_exc()}")
-            raise
+        # Setup data source
+        if data_path is not None:
+            self._load_consolidated_data()
+        elif input_dir is not None:
+            self._setup_individual_files()
+        else:
+            raise ValueError("Either data_path or input_dir must be specified")
         
         # Define parameter ranges for grid search
         self.param_ranges = {
@@ -132,6 +127,96 @@ class GridSearchOptimizer:
         
         self.logger.info(f"Created output directory: {output_dir}")
         
+    def _load_consolidated_data(self):
+        """Load data from a consolidated CSV file."""
+        try:
+            self.logger.info(f"Loading consolidated data from {self.data_path}")
+            self.data = pd.read_csv(self.data_path)
+            self.logger.debug(f"Raw data columns: {self.data.columns.tolist()}")
+            
+            # Ensure required columns exist
+            required_columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'symbol']
+            missing_columns = [col for col in required_columns if col not in self.data.columns]
+            if missing_columns:
+                raise ValueError(f"Missing required columns: {missing_columns}")
+            
+            self.data['timestamp'] = pd.to_datetime(self.data['timestamp'])
+            self.data = self.data.sort_values(['symbol', 'timestamp'])
+            
+            # Get list of stocks
+            self.stocks = list(self.data['symbol'].unique())
+            if self.specific_stocks:
+                self.stocks = [s for s in self.stocks if s in self.specific_stocks]
+            
+            # Log data info
+            self.logger.info(f"Successfully loaded data from {self.data_path}")
+            self.logger.info(f"Data shape: {self.data.shape}")
+            self.logger.info(f"Number of unique stocks: {len(self.stocks)}")
+            self.logger.info(f"Date range: {self.data['timestamp'].min()} to {self.data['timestamp'].max()}")
+            self.logger.info(f"Number of unique dates: {len(self.data['timestamp'].unique())}")
+            
+            self.use_individual_files = False
+            
+        except Exception as e:
+            self.logger.error(f"Error loading data: {str(e)}")
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
+    
+    def _setup_individual_files(self):
+        """Setup for reading from individual stock files."""
+        try:
+            self.logger.info(f"Using individual stock files from {self.input_dir}")
+            
+            # Get list of stock files
+            file_pattern = os.path.join(self.input_dir, "*_day.csv")  # Assuming daily data
+            stock_files = glob.glob(file_pattern)
+            
+            if not stock_files:
+                self.logger.error(f"No stock files found in {self.input_dir}")
+                raise ValueError(f"No stock files found in {self.input_dir}")
+            
+            # Extract stock symbols from filenames
+            all_stocks = [os.path.basename(f).split('_')[0] for f in stock_files]
+            
+            # If specific stocks were provided, filter the list
+            if self.specific_stocks:
+                self.stocks = [s for s in all_stocks if s in self.specific_stocks]
+            # If trading config was provided, load stocks from there
+            elif self.trading_config_path:
+                with open(self.trading_config_path, 'r') as f:
+                    config = yaml.safe_load(f)
+                config_stocks = []
+                if isinstance(config.get('stocks'), list):
+                    # Handle both formats (list of strings or list of dicts)
+                    for stock in config['stocks']:
+                        if isinstance(stock, dict):
+                            if 'symbol' in stock:
+                                config_stocks.append(stock['symbol'])
+                        else:
+                            config_stocks.append(stock)
+                self.stocks = [s for s in all_stocks if s in config_stocks]
+            else:
+                self.stocks = all_stocks
+            
+            self.logger.info(f"Found {len(stock_files)} stock files")
+            self.logger.info(f"Will process {len(self.stocks)} stocks")
+            
+            # Sample a file to get date range
+            sample_file = stock_files[0]
+            sample_df = pd.read_csv(sample_file)
+            sample_df['timestamp'] = pd.to_datetime(sample_df['timestamp'])
+            
+            self.logger.info(f"Date range sample: {sample_df['timestamp'].min()} to {sample_df['timestamp'].max()}")
+            self.logger.info(f"Number of unique dates sample: {len(sample_df['timestamp'].unique())}")
+            
+            self.use_individual_files = True
+            self.file_map = {os.path.basename(f).split('_')[0]: f for f in stock_files}
+            
+        except Exception as e:
+            self.logger.error(f"Error setting up individual files: {str(e)}")
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
+
     def generate_param_combinations(self) -> List[Dict]:
         """Generate all possible combinations of parameters."""
         param_names = []
@@ -183,18 +268,31 @@ class GridSearchOptimizer:
             all_trades = []
             
             # Log number of stocks being processed
-            stocks = list(self.data['symbol'].unique())
-            self.logger.debug(f"Processing {len(stocks)} stocks: {stocks[:5]}...")
+            self.logger.debug(f"Processing {len(self.stocks)} stocks: {self.stocks[:5]}...")
             
-            for symbol in stocks:
-                stock_data = self.data[self.data['symbol'] == symbol].copy()
-                
-                if len(stock_data) < 10:  # Skip stocks with very little data
-                    self.logger.debug(f"Skipping {symbol} - insufficient data ({len(stock_data)} rows)")
-                    continue
-                    
-                # Calculate indicators and generate signals
+            for symbol in self.stocks:
                 try:
+                    if self.use_individual_files:
+                        # Load data from individual file
+                        if symbol not in self.file_map:
+                            self.logger.debug(f"No file found for {symbol}, skipping")
+                            continue
+                        
+                        file_path = self.file_map[symbol]
+                        stock_data = pd.read_csv(file_path)
+                        stock_data['symbol'] = symbol  # Add symbol column
+                    else:
+                        # Filter from consolidated data
+                        stock_data = self.data[self.data['symbol'] == symbol].copy()
+                    
+                    if len(stock_data) < 10:  # Skip stocks with very little data
+                        self.logger.debug(f"Skipping {symbol} - insufficient data ({len(stock_data)} rows)")
+                        continue
+                    
+                    # Ensure timestamp is datetime
+                    stock_data['timestamp'] = pd.to_datetime(stock_data['timestamp'])
+                        
+                    # Calculate indicators and generate signals
                     df = ta.calculate_all_indicators(stock_data)
                     
                     # Initialize performance analyzer for signal processing
@@ -219,21 +317,15 @@ class GridSearchOptimizer:
             if not all_trades:
                 self.logger.warning("No trades were generated for any stock")
                 return {
-                    'parameters': params,
-                    'total_trades': 0,
+                    'num_trades': 0,
                     'win_rate': 0,
-                    'sharpe_ratio': 0,
                     'cagr': 0,
+                    'sharpe_ratio': -999,
                     'max_drawdown': 0,
-                    'initial_capital': self.initial_capital,
-                    'max_capital_used': 0,
-                    'additional_capital_required': 0,
                     'final_capital': self.initial_capital,
-                    'realized_pnl': 0,
-                    'avg_capital_utilization': 0,
-                    'max_concurrent_trades': 0
+                    'params': params
                 }
-                
+            
             # Validate trade dates and fix any issues
             for trade in all_trades:
                 # Ensure dates are pandas Timestamp objects
@@ -400,16 +492,31 @@ class GridSearchOptimizer:
 
 def main():
     parser = argparse.ArgumentParser(description='Run grid search optimization for technical indicators')
-    parser.add_argument('--input', required=True, help='Path to input CSV file with combined OHLC data for all stocks')
+    parser.add_argument('--input', help='Path to input CSV file with combined OHLC data for all stocks')
+    parser.add_argument('--input-dir', help='Directory containing individual stock OHLC data files')
     parser.add_argument('--output', required=True, help='Directory to save results')
     parser.add_argument('--max-combinations', type=int, help='Maximum number of combinations to test')
     parser.add_argument('--max-investment', type=float, default=5000, help='Maximum investment per trade')
     parser.add_argument('--initial-capital', type=float, default=10000, help='Initial capital for portfolio')
+    parser.add_argument('--stocks', nargs='+', help='Specific stocks to optimize for')
+    parser.add_argument('--trading-config', help='Path to trading configuration file')
     
     args = parser.parse_args()
     
+    if not args.input and not args.input_dir:
+        print("Error: Either --input or --input-dir must be specified")
+        sys.exit(1)
+    
     try:
-        optimizer = GridSearchOptimizer(args.input, args.output, args.max_investment, args.initial_capital)
+        optimizer = GridSearchOptimizer(
+            data_path=args.input,
+            input_dir=args.input_dir,
+            output_dir=args.output,
+            max_investment_per_trade=args.max_investment,
+            initial_capital=args.initial_capital,
+            stocks=args.stocks,
+            trading_config=args.trading_config
+        )
         optimizer.run_grid_search(args.max_combinations)
     except Exception as e:
         print(f"Error: {str(e)}")

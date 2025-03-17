@@ -47,35 +47,56 @@ class DataFetcher:
             logger.error(f"Error loading configuration: {str(e)}")
             raise
 
-    def get_stock_list(self) -> List[Dict]:
-        """Get list of stocks based on configuration"""
-        if self.config['stocks'] == 'all':
+    def get_stock_list(self):
+        """Get the list of stocks to fetch data for."""
+        if self.config.get('stocks') == 'all':
             return self.get_all_equity_stocks()
+        elif isinstance(self.config['stocks'], list):
+            # Handle new format where stocks is a list of dictionaries
+            if self.config['stocks'] and isinstance(self.config['stocks'][0], dict):
+                # Extract just the symbols from the dictionaries
+                symbols = [stock['symbol'] for stock in self.config['stocks'] if 'symbol' in stock]
+                return self.get_specific_stocks(symbols)
+            else:
+                # Old format - just a list of strings
+                return self.get_specific_stocks(self.config['stocks'])
         else:
-            return self.get_specific_stocks(self.config['stocks'])
+            raise ValueError("Invalid 'stocks' configuration. Must be 'all' or a list of stocks.")
 
-    def get_specific_stocks(self, symbols: List[str]) -> List[Dict]:
-        """Get information for specific stock symbols"""
+    def get_specific_stocks(self, symbols):
+        """
+        Get specific stock instruments based on the provided symbols.
+        
+        Args:
+            symbols: List of stock symbols
+        
+        Returns:
+            List of instruments matching the provided symbols
+        """
         try:
-            instruments = self.client.get_instruments(exchange="NSE")
-            if not instruments:
+            # Make sure symbols is a list of strings
+            if isinstance(symbols, list) and symbols and isinstance(symbols[0], dict):
+                # Extract symbols from dictionaries if needed
+                symbols = [s['symbol'] for s in symbols if 'symbol' in s]
+            
+            # Get all NSE instruments
+            all_instruments = self.client.get_instruments(exchange="NSE")
+            if not all_instruments:
                 raise ValueError("No instruments returned from the API")
-
-            # Filter for specified symbols
-            stock_info = []
-            for instrument in instruments:
+                
+            # Filter instruments to get only the specified stocks
+            instruments = []
+            for instrument in all_instruments:
                 if (instrument.get('tradingsymbol') in symbols and
-                    instrument.get('segment') == self.config['asset_filters']['segment'] and
-                    instrument.get('instrument_type') == self.config['asset_filters']['instrument_type'] and
-                    instrument.get('exchange') == self.config['asset_filters']['exchange']):
-                    stock_info.append(instrument)
-
-            if not stock_info:
+                    self._matches_filters(instrument)):
+                    instruments.append(instrument)
+            
+            if not instruments:
                 raise ValueError("None of the specified symbols found in equity instruments")
-
-            logger.info(f"Found {len(stock_info)} specified stocks")
-            return stock_info
-
+                
+            logger.info(f"Found {len(instruments)} specified stocks")
+            return instruments
+            
         except Exception as e:
             logger.error(f"Error fetching specific stocks: {str(e)}")
             raise
@@ -319,6 +340,39 @@ Authentication failed! Please follow these steps:
             logger.error(f"Error in fetch_all_data: {str(e)}")
             raise
             
+    def _matches_filters(self, instrument):
+        """
+        Check if an instrument matches the asset filters defined in config.
+        
+        Args:
+            instrument: Instrument data from Kite API
+            
+        Returns:
+            bool: True if instrument matches filters, False otherwise
+        """
+        # Check if segment matches (e.g., NSE)
+        if self.config['asset_filters'].get('segment') and \
+           instrument.get('segment') != self.config['asset_filters']['segment']:
+            return False
+            
+        # Check if instrument type matches (e.g., EQ)
+        if self.config['asset_filters'].get('instrument_type') and \
+           instrument.get('instrument_type') != self.config['asset_filters']['instrument_type']:
+            return False
+            
+        # Check if exchange matches (e.g., NSE)
+        if self.config['asset_filters'].get('exchange') and \
+           instrument.get('exchange') != self.config['asset_filters']['exchange']:
+            return False
+            
+        # Check excluded symbols (e.g., symbols ending with -BE, -BZ, etc.)
+        if self.config['asset_filters'].get('exclude_symbols'):
+            for exclude_pattern in self.config['asset_filters']['exclude_symbols']:
+                if exclude_pattern in instrument.get('tradingsymbol', ''):
+                    return False
+                    
+        return True
+
 def main():
     # Allow config path to be specified as command line argument
     import argparse

@@ -1,25 +1,9 @@
-asset_filters:
-  exchange: NSE
-  exclude_symbols:
-  - -BE
-  - -BZ
-  - -SM
-  - -SG
-  - GB
-  - SDL
-  instrument_type: EQ
-  segment: NSE
-interval: day
-months_of_history: 60
+# Trading configuration
 stocks:
   - symbol: ADANIENT
     config: config/stock_configs/ADANIENT.yaml
-  - symbol: RELIANCE
-    config: config/stock_configs/RELIANCE.yaml
-  - symbol: TATAMOTORS
-    config: config/stock_configs/TATAMOTORS.yaml
-  - symbol: TCS
-    config: config/stock_configs/TCS.yaml
+  - symbol: ADANIPORTS
+    config: config/stock_configs/ADANIPORTS.yaml
   - symbol: APOLLOHOSP
     config: config/stock_configs/APOLLOHOSP.yaml
   - symbol: ASIANPAINT
@@ -28,16 +12,16 @@ stocks:
     config: config/stock_configs/AXISBANK.yaml
   - symbol: BAJAJ-AUTO
     config: config/stock_configs/BAJAJ-AUTO.yaml
-  - symbol: BAJAJFINSV
-    config: config/stock_configs/BAJAJFINSV.yaml
   - symbol: BAJFINANCE
     config: config/stock_configs/BAJFINANCE.yaml
-  - symbol: BHARTIARTL
-    config: config/stock_configs/BHARTIARTL.yaml
+  - symbol: BAJAJFINSV
+    config: config/stock_configs/BAJAJFINSV.yaml
   - symbol: BEL
     config: config/stock_configs/BEL.yaml
   - symbol: BPCL
     config: config/stock_configs/BPCL.yaml
+  - symbol: BHARTIARTL
+    config: config/stock_configs/BHARTIARTL.yaml
   - symbol: BRITANNIA
     config: config/stock_configs/BRITANNIA.yaml
   - symbol: CIPLA
@@ -64,12 +48,12 @@ stocks:
     config: config/stock_configs/HINDUNILVR.yaml
   - symbol: ICICIBANK
     config: config/stock_configs/ICICIBANK.yaml
+  - symbol: ITC
+    config: config/stock_configs/ITC.yaml
   - symbol: INDUSINDBK
     config: config/stock_configs/INDUSINDBK.yaml
   - symbol: INFY
     config: config/stock_configs/INFY.yaml
-  - symbol: ITC
-    config: config/stock_configs/ITC.yaml
   - symbol: JSWSTEEL
     config: config/stock_configs/JSWSTEEL.yaml
   - symbol: KOTAKBANK
@@ -80,24 +64,30 @@ stocks:
     config: config/stock_configs/M&M.yaml
   - symbol: MARUTI
     config: config/stock_configs/MARUTI.yaml
-  - symbol: NESTLEIND
-    config: config/stock_configs/NESTLEIND.yaml
   - symbol: NTPC
     config: config/stock_configs/NTPC.yaml
+  - symbol: NESTLEIND
+    config: config/stock_configs/NESTLEIND.yaml
   - symbol: ONGC
     config: config/stock_configs/ONGC.yaml
   - symbol: POWERGRID
     config: config/stock_configs/POWERGRID.yaml
+  - symbol: RELIANCE
+    config: config/stock_configs/RELIANCE.yaml
   - symbol: SBILIFE
     config: config/stock_configs/SBILIFE.yaml
-  - symbol: SBIN
-    config: config/stock_configs/SBIN.yaml
   - symbol: SHRIRAMFIN
     config: config/stock_configs/SHRIRAMFIN.yaml
+  - symbol: SBIN
+    config: config/stock_configs/SBIN.yaml
   - symbol: SUNPHARMA
     config: config/stock_configs/SUNPHARMA.yaml
+  - symbol: TCS
+    config: config/stock_configs/TCS.yaml
   - symbol: TATACONSUM
     config: config/stock_configs/TATACONSUM.yaml
+  - symbol: TATAMOTORS
+    config: config/stock_configs/TATAMOTORS.yaml
   - symbol: TATASTEEL
     config: config/stock_configs/TATASTEEL.yaml
   - symbol: TECHM
@@ -110,5 +100,20 @@ stocks:
     config: config/stock_configs/ULTRACEMCO.yaml
   - symbol: WIPRO
     config: config/stock_configs/WIPRO.yaml
-  - symbol: ADANIPORTS
-    config: config/stock_configs/ADANIPORTS.yaml
+
+# Data fetching configuration
+interval: "day"
+months_of_history: 60
+
+# Asset type filters
+asset_filters:
+  segment: "NSE"
+  instrument_type: "EQ"
+  exchange: "NSE"
+  exclude_symbols:
+    - "-BE"
+    - "-BZ"
+    - "-SM"
+    - "-SG"
+    - "GB"
+    - "SDL"

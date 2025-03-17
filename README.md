@@ -177,8 +177,18 @@ algo_trading/
 
 1. **Run Global Grid Search for All Stocks Combined**
    ```bash
+   # Using consolidated indicators file (traditional approach)
    python scripts/grid_search.py \
      --input data/outputs/all_stocks_indicators.csv \
+     --output logs \
+     --max-investment 5000 \
+     --initial-capital 10000 \
+     --max-combinations 1000
+     
+   # Using individual stock files directly (more efficient approach)
+   python scripts/grid_search.py \
+     --input-dir data/inputs \
+     --trading-config config/trading_config.yaml \
      --output logs \
      --max-investment 5000 \
      --initial-capital 10000 \
@@ -187,15 +197,21 @@ algo_trading/
 
 2. **Run Grid Search for Individual Stocks**
    ```bash
-   # Optimize for all stocks in trading config (each with its own parameters)
+   # Using consolidated indicators file (traditional approach)
    python scripts/stock_grid_search.py \
      --input data/outputs/all_stocks_indicators.csv \
+     --output logs/stock_grid_search \
+     --max-combinations 10000
+   
+   # Using individual stock files directly (more efficient approach)
+   python scripts/stock_grid_search.py \
+     --input-dir data/inputs \
      --output logs/stock_grid_search \
      --max-combinations 10000
      
    # Optimize for specific stocks
    python scripts/stock_grid_search.py \
-     --input data/outputs/all_stocks_indicators.csv \
+     --input-dir data/inputs \
      --output logs/stock_grid_search \
      --stocks RELIANCE TCS HDFCBANK \
      --max-combinations 10000
@@ -216,6 +232,33 @@ algo_trading/
 ### Complete Workflow for Stock-Specific Optimization
 
 For best results, follow this complete workflow:
+
+1. **Fetch OHLC data for all stocks**
+   ```bash
+   python scripts/data_fetcher.py
+   ```
+
+2. **Run stock-specific grid search directly on raw data files**
+   ```bash
+   python scripts/stock_grid_search.py \
+     --input-dir data/inputs \
+     --output logs/stock_grid_search \
+     --max-combinations 10000
+   ```
+
+3. **Run performance analysis with optimized parameters**
+   ```bash
+   python scripts/performance_analyzer.py \
+     --input data/outputs/all_stocks_indicators.csv \
+     --output logs/optimized_performance \
+     --use-stock-configs \
+     --max-investment 5000 \
+     --initial-capital 10000
+   ```
+
+### Alternative Workflow (Traditional Approach)
+
+If you prefer the traditional approach with consolidated files:
 
 1. **Fetch OHLC data for all stocks**
    ```bash

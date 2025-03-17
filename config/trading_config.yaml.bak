@@ -1,0 +1,14 @@
+asset_filters:
+  exchange: NSE
+  exclude_symbols:
+  - -BE
+  - -BZ
+  - -SM
+  - -SG
+  - GB
+  - SDL
+  instrument_type: EQ
+  segment: NSE
+interval: day
+months_of_history: 60
+stocks: []

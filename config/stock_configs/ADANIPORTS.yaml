@@ -13,7 +13,7 @@ support_resistance:
 
 # ATR Parameters
 atr:
-  window: 14
+  window: 10
 
 # EMA Parameters
 ema:
