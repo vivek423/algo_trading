@@ -487,22 +487,13 @@ def load_stock_configs(trading_config_path: str) -> Dict[str, str]:
         with open(trading_config_path, 'r') as f:
             trading_config = yaml.safe_load(f)
             
+        # Check if trading config has the new format
         stock_configs = {}
+        if trading_config['stocks'] and isinstance(trading_config['stocks'][0], dict):
+            for stock_entry in trading_config['stocks']:
+                if 'symbol' in stock_entry and 'config' in stock_entry:
+                    stock_configs[stock_entry['symbol']] = stock_entry['config']
         
-        if 'stocks' in trading_config:
-            for stock in trading_config['stocks']:
-                if isinstance(stock, dict):
-                    symbol = stock.get('symbol')
-                    config_path = stock.get('config')
-                    
-                    if symbol and config_path:
-                        # Use the config path as is if it's absolute, otherwise resolve it relative to the config directory
-                        if not os.path.isabs(config_path):
-                            # Use just the config path as provided, don't join it with the trading_config directory
-                            # as that's causing the double "config/" issue
-                            pass
-                        stock_configs[symbol] = config_path
-                        
         logger.info(f"Loaded {len(stock_configs)} stock-specific configurations")
         return stock_configs
         
@@ -519,34 +510,12 @@ def main():
     parser.add_argument('--initial-capital', '-c', type=float, default=10000, help='Initial capital for portfolio')
     parser.add_argument('--trading-config', '-t', default='config/trading_config.yaml', help='Path to trading configuration')
     parser.add_argument('--use-stock-configs', '-s', action='store_true', help='Use stock-specific configurations')
-    parser.add_argument('--start-date', help='Start date for analysis (YYYY-MM-DD)')
-    parser.add_argument('--end-date', help='End date for analysis (YYYY-MM-DD)')
-    parser.add_argument('--mode', choices=['backtest', 'fronttest'], default='backtest',
-                      help='Analysis mode: backtest (in-sample) or fronttest (out-of-sample)')
-    parser.add_argument('--reference-result', help='Path to reference performance metrics for comparison')
     
     args = parser.parse_args()
     
     try:
         # Load data
         df = pd.read_csv(args.input, parse_dates=['timestamp'], index_col='timestamp')
-        
-        # Filter by date range if specified
-        if args.start_date or args.end_date:
-            if args.start_date:
-                start_date = pd.to_datetime(args.start_date)
-                df = df[df['timestamp'] >= start_date]
-                logger.info(f"Filtered data to start from {args.start_date}, {len(df)} rows remaining")
-                
-            if args.end_date:
-                end_date = pd.to_datetime(args.end_date)
-                df = df[df['timestamp'] <= end_date]
-                logger.info(f"Filtered data to end at {args.end_date}, {len(df)} rows remaining")
-        
-        # Output date range information
-        min_date = df['timestamp'].min()
-        max_date = df['timestamp'].max()
-        logger.info(f"Analysis period: {min_date.strftime('%Y-%m-%d')} to {max_date.strftime('%Y-%m-%d')}")
         
         # Load stock-specific configurations if enabled
         stock_configs = {}
@@ -676,25 +645,6 @@ def main():
                     win_rate = len(trades[trades['pnl'] > 0]) / len(trades) * 100 if len(trades) > 0 else 0
                     total_pnl = sum(trades['pnl'].dropna())
                     print(f"{symbol}: {len(trades)} trades, Win Rate: {win_rate:.2f}%, P&L: ₹{total_pnl:,.2f}")
-        
-        # Compare with reference results if provided
-        if args.reference_result and os.path.exists(args.reference_result):
-            try:
-                with open(args.reference_result, 'r') as f:
-                    reference = yaml.safe_load(f)
-                    
-                if 'metrics' in reference:
-                    reference = reference['metrics']
-                    
-                logger.info("\nComparison with reference results:")
-                logger.info(f"{'Metric':<20} {'Current':<10} {'Reference':<10} {'Difference':<10}")
-                
-                for key in ['win_rate', 'cagr', 'sharpe_ratio', 'max_drawdown']:
-                    if key in overall_metrics and key in reference:
-                        diff = overall_metrics[key] - reference[key]
-                        logger.info(f"{key:<20} {overall_metrics[key]:<10.2f} {reference[key]:<10.2f} {diff:+.2f}")
-            except Exception as e:
-                logger.error(f"Error comparing with reference results: {str(e)}")
         
     except Exception as e:
         logger.error(f"Error in performance analysis: {str(e)}")

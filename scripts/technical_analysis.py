@@ -6,7 +6,6 @@ from typing import Optional, Dict, Union, List
 import logging
 import glob
 import sys
-import argparse
 
 # Configure logging
 log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
@@ -326,246 +325,103 @@ class TechnicalAnalysis:
 
 def main():
     """Main function to run technical analysis."""
-    parser = argparse.ArgumentParser(description='Generate technical indicators for stock data')
-    parser.add_argument('--input', required=True, help='Input data file path (CSV)')
-    parser.add_argument('--output', required=True, help='Output data file path (CSV)')
-    parser.add_argument('--config', help='Technical indicators configuration file path')
-    parser.add_argument('--all', action='store_true', help='Process all stocks from trading config')
-    parser.add_argument('--trading-config', default='config/trading_config.yaml', help='Trading configuration file path')
-    parser.add_argument('--input-dir', help='Input directory containing data files')
-    parser.add_argument('--start-date', help='Start date for data filtering (YYYY-MM-DD)')
-    parser.add_argument('--end-date', help='End date for data filtering (YYYY-MM-DD)')
-    parser.add_argument('--train-test-split', action='store_true', help='Split data into training and testing sets')
-    parser.add_argument('--test-months', type=int, default=6, help='Number of months to set aside for testing')
-    parser.add_argument('--output-test', help='Output file path for test data')
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Calculate technical indicators for stock data.')
+    parser.add_argument('--input', '-i', help='Path to input CSV file with OHLC data')
+    parser.add_argument('--output', '-o', help='Path to output CSV file for indicators')
+    parser.add_argument('--config', '-c', help='Path to technical indicators configuration file')
+    parser.add_argument('--all', '-a', action='store_true', help='Process all stocks from trading config')
+    parser.add_argument('--trading-config', '-t', default='config/trading_config.yaml', 
+                        help='Path to trading configuration file (used with --all)')
+    parser.add_argument('--input-dir', '-d', default='data/inputs/', 
+                        help='Directory containing input CSV files (used with --all)')
     
     args = parser.parse_args()
     
     # Validate arguments
-    if args.all and args.config:
-        logger.error("Cannot use --all and --config together")
-        sys.exit(1)
-    
-    if args.all and not os.path.exists(args.trading_config):
-        logger.error(f"Trading config file not found: {args.trading_config}")
-        sys.exit(1)
-        
-    if args.train_test_split and not args.output_test:
-        logger.error("--output-test must be specified when using --train-test-split")
-        sys.exit(1)
-    
-    # Process all stocks from trading config
     if args.all:
-        # Load trading configuration
-        with open(args.trading_config, 'r') as file:
-            trading_config = yaml.safe_load(file)
-        
-        if 'stocks' not in trading_config:
-            logger.error("No stocks found in trading config")
-            sys.exit(1)
-            
-        # Load input data
-        if args.input_dir:
-            input_file = os.path.join(args.input_dir, args.input)
-        else:
-            input_file = args.input
-            
-        logger.info(f"Loading data from {input_file}")
-        df = pd.read_csv(input_file, parse_dates=['timestamp'])
-        
-        # Filter by date range if specified
-        if args.start_date or args.end_date:
-            original_size = len(df)
-            
-            if args.start_date:
-                start_date = pd.to_datetime(args.start_date)
-                df = df[df['timestamp'] >= start_date]
-                logger.info(f"Filtered data to start from {args.start_date}")
-                
-            if args.end_date:
-                end_date = pd.to_datetime(args.end_date)
-                df = df[df['timestamp'] <= end_date]
-                logger.info(f"Filtered data to end at {args.end_date}")
-                
-            logger.info(f"Date filtering: {original_size} -> {len(df)} rows")
-        
-        # Handle train-test split if requested
-        if args.train_test_split:
-            # Sort by timestamp to ensure chronological split
-            df.sort_values('timestamp', inplace=True)
-            
-            # Find the cutoff date for splitting
-            latest_date = df['timestamp'].max()
-            cutoff_date = latest_date - pd.DateOffset(months=args.test_months)
-            
-            # Split the data
-            train_data = df[df['timestamp'] <= cutoff_date].copy()
-            test_data = df[df['timestamp'] > cutoff_date].copy()
-            
-            logger.info(f"Train-test split: {len(train_data)} training rows, {len(test_data)} testing rows")
-            logger.info(f"Training period: {train_data['timestamp'].min()} to {train_data['timestamp'].max()}")
-            logger.info(f"Testing period: {test_data['timestamp'].min()} to {test_data['timestamp'].max()}")
-            
-            # Continue with training data for now
-            df = train_data
-        else:
-            test_data = None
-        
-        # Process each stock
-        results = []
-        for stock in trading_config['stocks']:
-            # Support both old and new format for stock configurations
-            if isinstance(stock, dict):
-                symbol = stock.get('symbol')
-                config_path = stock.get('config')
-            else:
-                symbol = stock
-                config_path = None
-                
-            if not symbol:
-                logger.warning(f"Skipping stock with no symbol: {stock}")
-                continue
-                
-            # Filter data for this stock
-            stock_data = df[df['symbol'] == symbol].copy()
-            
-            if len(stock_data) < 10:
-                logger.warning(f"Insufficient data for {symbol} (only {len(stock_data)} rows). Skipping.")
-                continue
-                
-            logger.info(f"Processing {symbol} with {len(stock_data)} data points")
-            
-            # Determine the configuration to use
-            if config_path:
-                # If specific config is provided for this stock
-                config_path = os.path.join(os.path.dirname(args.trading_config), config_path)
-                if not os.path.exists(config_path):
-                    logger.warning(f"Configuration file not found for {symbol}: {config_path}")
-                    config_path = None
-            
-            # If no valid config found, use default
-            if not config_path and args.config:
-                config_path = args.config
-                
-            # Process the stock data
-            ta = TechnicalAnalysis(config_path=config_path)
-            stock_data = ta.calculate_all_indicators(stock_data)
-            
-            results.append(stock_data)
-            
-        # Combine results and save
-        if results:
-            combined_results = pd.concat(results, ignore_index=True)
-            combined_results.to_csv(args.output, index=False)
-            logger.info(f"Saved {len(combined_results)} rows to {args.output}")
-            
-            # Save test data if split was requested
-            if args.train_test_split and test_data is not None:
-                # Process test data with the same configurations
-                test_results = []
-                for stock in trading_config['stocks']:
-                    if isinstance(stock, dict):
-                        symbol = stock.get('symbol')
-                        config_path = stock.get('config')
-                    else:
-                        symbol = stock
-                        config_path = None
-                        
-                    if not symbol:
-                        continue
-                        
-                    # Filter test data for this stock
-                    stock_test_data = test_data[test_data['symbol'] == symbol].copy()
-                    
-                    if len(stock_test_data) < 10:
-                        logger.warning(f"Insufficient test data for {symbol} (only {len(stock_test_data)} rows). Skipping.")
-                        continue
-                        
-                    logger.info(f"Processing test data for {symbol} with {len(stock_test_data)} data points")
-                    
-                    # Use the same configuration as for training
-                    if config_path:
-                        config_path = os.path.join(os.path.dirname(args.trading_config), config_path)
-                        if not os.path.exists(config_path):
-                            config_path = None
-                            
-                    if not config_path and args.config:
-                        config_path = args.config
-                        
-                    ta = TechnicalAnalysis(config_path=config_path)
-                    stock_test_data = ta.calculate_all_indicators(stock_test_data)
-                    
-                    test_results.append(stock_test_data)
-                    
-                if test_results:
-                    combined_test_results = pd.concat(test_results, ignore_index=True)
-                    combined_test_results.to_csv(args.output_test, index=False)
-                    logger.info(f"Saved {len(combined_test_results)} test rows to {args.output_test}")
-        else:
-            logger.warning("No data processed. Output file not created.")
-    
-    # Process single stock with specified config
+        if args.input or not args.output:
+            parser.error("When using --all, don't specify --input but --output is required")
     else:
-        # Load input data
-        if args.input_dir:
-            input_file = os.path.join(args.input_dir, args.input)
-        else:
-            input_file = args.input
+        if not args.input or not args.output:
+            parser.error("--input and --output are required when not using --all")
+    
+    try:
+        if args.all:
+            # Process all stocks from trading config
+            trading_config_path = args.trading_config
+            with open(trading_config_path, 'r') as f:
+                trading_config = yaml.safe_load(f)
             
-        logger.info(f"Loading data from {input_file}")
-        df = pd.read_csv(input_file, parse_dates=['timestamp'])
-        
-        # Filter by date range if specified
-        if args.start_date or args.end_date:
-            original_size = len(df)
+            # Support both old and new format for stocks configuration
+            if isinstance(trading_config['stocks'], list):
+                if trading_config['stocks'] and isinstance(trading_config['stocks'][0], dict):
+                    # New format - list of dicts with symbol and config
+                    stocks_config = trading_config['stocks']
+                else:
+                    # Old format - just a list of symbols
+                    stocks_config = [{'symbol': symbol, 'config': None} for symbol in trading_config['stocks']]
+            else:
+                logger.error("Invalid stocks configuration format in trading_config.yaml")
+                return
             
-            if args.start_date:
-                start_date = pd.to_datetime(args.start_date)
-                df = df[df['timestamp'] >= start_date]
-                logger.info(f"Filtered data to start from {args.start_date}")
+            interval = trading_config.get('interval', '60minute')
+            all_results = []
+            
+            for stock_entry in stocks_config:
+                symbol = stock_entry['symbol']
+                config_path = stock_entry.get('config')
                 
-            if args.end_date:
-                end_date = pd.to_datetime(args.end_date)
-                df = df[df['timestamp'] <= end_date]
-                logger.info(f"Filtered data to end at {args.end_date}")
+                input_file = os.path.join(args.input_dir, f"{symbol}_{interval}.csv")
+                if not os.path.exists(input_file):
+                    logger.warning(f"Input file for {symbol} not found: {input_file}")
+                    continue
                 
-            logger.info(f"Date filtering: {original_size} -> {len(df)} rows")
-        
-        # Handle train-test split if requested
-        if args.train_test_split:
-            # Sort by timestamp to ensure chronological split
-            df.sort_values('timestamp', inplace=True)
+                logger.info(f"Processing {symbol}...")
+                
+                try:
+                    # Initialize technical analysis with stock-specific config if available
+                    # The TechnicalAnalysis class will handle missing files by falling back to default
+                    ta = TechnicalAnalysis(config_path=config_path)
+                    
+                    df = ta.load_data(input_file)
+                    df_with_indicators = ta.calculate_all_indicators(df)
+                    
+                    # Add stock symbol column
+                    df_with_indicators['symbol'] = symbol
+                    
+                    all_results.append(df_with_indicators)
+                except Exception as e:
+                    logger.error(f"Error processing {symbol}: {str(e)}")
+                    # Continue with next stock instead of crashing
+                    continue
             
-            # Find the cutoff date for splitting
-            latest_date = df['timestamp'].max()
-            cutoff_date = latest_date - pd.DateOffset(months=args.test_months)
-            
-            # Split the data
-            train_data = df[df['timestamp'] <= cutoff_date].copy()
-            test_data = df[df['timestamp'] > cutoff_date].copy()
-            
-            logger.info(f"Train-test split: {len(train_data)} training rows, {len(test_data)} testing rows")
-            logger.info(f"Training period: {train_data['timestamp'].min()} to {train_data['timestamp'].max()}")
-            logger.info(f"Testing period: {test_data['timestamp'].min()} to {test_data['timestamp'].max()}")
-            
-            # Continue with training data for now
-            df = train_data
+            if all_results:
+                # Combine all results
+                combined_df = pd.concat(all_results)
+                combined_df.to_csv(args.output)
+                logger.info(f"Combined technical indicators for {len(all_results)} stocks saved to {args.output}")
+            else:
+                logger.error("No stock data was processed. Check input directory and stock symbols.")
         else:
-            test_data = None
+            # Process single stock
+            # Initialize technical analysis
+            ta = TechnicalAnalysis(config_path=args.config)
+            
+            df = ta.load_data(args.input)
+            df_with_indicators = ta.calculate_all_indicators(df)
+            
+            # Extract stock symbol from filename
+            stock_symbol = os.path.basename(args.input).split('_')[0]
+            df_with_indicators['symbol'] = stock_symbol
+            
+            df_with_indicators.to_csv(args.output)
+            logger.info(f"Technical indicators saved to {args.output}")
         
-        # Calculate technical indicators
-        ta = TechnicalAnalysis(config_path=args.config)
-        result = ta.calculate_all_indicators(df)
-        
-        # Save results
-        result.to_csv(args.output, index=False)
-        logger.info(f"Saved {len(result)} rows to {args.output}")
-        
-        # Save test data if split was requested
-        if args.train_test_split and test_data is not None:
-            test_result = ta.calculate_all_indicators(test_data)
-            test_result.to_csv(args.output_test, index=False)
-            logger.info(f"Saved {len(test_result)} test rows to {args.output_test}")
+    except Exception as e:
+        logger.error(f"Error processing technical indicators: {str(e)}")
+        raise
 
 if __name__ == '__main__':
     main() 

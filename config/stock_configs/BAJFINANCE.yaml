@@ -1,45 +1,33 @@
-# Technical Analysis Parameters - Optimized via Grid Search for BAJFINANCE
-
-# MACD Parameters
+atr:
+  window: 14
+bollinger_bands:
+  num_std_dev: 2.5
+  window: 14
+columns:
+  close: close
+  high: high
+  low: low
+  open: open
+  timestamp: timestamp
+  volume: volume
+ema:
+  period: 21
 macd:
   fast_period: 8
-  slow_period: 21
-  signal_period: 7
-
-# Support and Resistance Parameters
-support_resistance:
-  support_period: 10
-  resistance_period: 10
-
-# ATR Parameters
-atr:
-  window: 10
-
-# EMA Parameters
-ema:
-  period: 10
-
-# Bollinger Bands Parameters
-bollinger_bands:
-  length: 20
-  std: 2.0
-
-# RSI Parameters
-rsi:
-  length: 20
-  oversold: 30
-  overbought: 65
-
-# Risk Management Parameters
+  signal_period: 6
+  slow_period: 24
+metadata:
+  optimization_timestamp: '2025-03-17 08:19:30'
+  training_period:
+    end_date: '2024-09-13'
+    start_date: '2020-05-19'
 risk_management:
   stop_loss_atr_multiplier: 2.0
   take_profit_atr_multiplier: 3.0
-
-# Default column names
-columns:
-  open: 'open'
-  high: 'high'
-  low: 'low'
-  close: 'close'
-  volume: 'volume'
-  timestamp: 'timestamp'
+rsi:
+  overbought: 75
+  oversold: 35
+  window: 14
+support_resistance:
+  resistance_period: 21
+  support_period: 10
