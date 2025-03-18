@@ -379,8 +379,7 @@ The system includes a complete workflow for daily trading operations:
    Each recommendation includes:
    - Symbol
    - Current price
-   - Buy/Sell/Hold recommendation
-   - Confidence score
+   - Buy/Sell/Hold recommendation (based directly on the signal_combined value)
    - Maximum quantity to trade
    - Recommended investment amount (max ₹50,000)
    - Stop-loss and take-profit levels

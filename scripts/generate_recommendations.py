@@ -128,37 +128,25 @@ def generate_recommendation(df):
                 'date': latest.name if isinstance(latest.name, pd.Timestamp) else pd.Timestamp.now(),
                 'close_price': latest.get('close', 0),
                 'recommendation': 'HOLD',
-                'confidence': 0,
                 'stop_loss': 0,
                 'take_profit': 0,
                 'reason': 'Missing technical indicators'
             }
         
-        # Get the recommendation based on the combined signal
-        signal = latest['signal_combined']
+        # Get the recommendation based on the signal_combined value
+        # signal_combined is a discrete value: -1 (Sell), 0 (Hold), or 1 (Buy)
+        signal = int(latest['signal_combined'])  # Ensure integer value
         
-        # Default values
-        recommendation = 'HOLD'
-        confidence = 0
-        reason = 'No clear signal'
-        
-        # Interpret the signal
-        if signal > 0.5:
+        # Interpret the discrete signal
+        if signal == 1:
             recommendation = 'BUY'
-            confidence = min(signal, 1.0)
-            reason = 'Strong buy signal'
-        elif signal > 0.2:
-            recommendation = 'BUY'
-            confidence = signal
-            reason = 'Moderate buy signal'
-        elif signal < -0.5:
+            reason = 'Buy signal'
+        elif signal == -1:
             recommendation = 'SELL'
-            confidence = min(abs(signal), 1.0)
-            reason = 'Strong sell signal'
-        elif signal < -0.2:
-            recommendation = 'SELL'
-            confidence = abs(signal)
-            reason = 'Moderate sell signal'
+            reason = 'Sell signal'
+        else:  # signal == 0
+            recommendation = 'HOLD'
+            reason = 'No clear signal'
         
         # Calculate maximum quantity based on max investment
         max_investment = 50000  # ₹50,000
@@ -169,15 +157,11 @@ def generate_recommendation(df):
         stop_loss = latest.get('stop_loss', 0)
         take_profit = latest.get('take_profit', 0)
         
-        # If we already have a position, check if we should continue holding
-        # (This is a placeholder - in a real implementation you'd check against actual holdings)
-        
         return {
             'symbol': latest.get('symbol', 'UNKNOWN'),
             'date': latest.name if isinstance(latest.name, pd.Timestamp) else pd.Timestamp.now(),
             'close_price': price,
             'recommendation': recommendation,
-            'confidence': confidence,
             'max_quantity': max_quantity,
             'investment_amount': min(max_quantity * price, max_investment),
             'stop_loss': stop_loss,
@@ -239,9 +223,9 @@ def main():
     if recommendations:
         recommendations_df = pd.DataFrame(recommendations)
         
-        # Sort by confidence (strongest recommendations first)
-        recommendations_df = recommendations_df.sort_values(by=['recommendation', 'confidence'], 
-                                                        ascending=[False, False])
+        # Sort by recommendation type (BUY first, then SELL, then HOLD)
+        recommendations_df = recommendations_df.sort_values(by=['recommendation'], 
+                                                        ascending=[False])
         
         # Generate timestamp for filename
         timestamp = datetime.now().strftime('%Y%m%d')
