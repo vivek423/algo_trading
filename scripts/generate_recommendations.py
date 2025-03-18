@@ -42,24 +42,39 @@ class RecommendationGenerator:
         Args:
             config_path: Path to trading configuration file
             max_investment: Maximum investment per stock (Rs)
-            enable_notifications: Whether to enable WhatsApp notifications
+            enable_notifications: Whether to send WhatsApp notifications
         """
         self.config_path = config_path
         self.max_investment = max_investment
-        self.enable_notifications = enable_notifications and WHATSAPP_AVAILABLE
+        self.enable_notifications = enable_notifications
         
-        # Initialize WhatsApp notifier if notifications are enabled
-        if self.enable_notifications:
+        # Setup directories
+        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.data_dir = os.path.join(self.base_dir, 'data')
+        self.stock_dir = os.path.join(self.data_dir, 'inputs')
+        self.recommendations_dir = os.path.join(self.data_dir, 'recommendations')
+        
+        # Create recommendations directory if it doesn't exist
+        os.makedirs(self.recommendations_dir, exist_ok=True)
+        
+        # Initialize WhatsApp notifier if enabled and available
+        self.notifier = None
+        if self.enable_notifications and WHATSAPP_AVAILABLE:
             try:
                 self.notifier = WhatsAppNotifier()
-                logger.info("WhatsApp notifications enabled")
+                logger.info("WhatsApp notifier initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to initialize WhatsApp notifier: {str(e)}")
-                self.enable_notifications = False
+                self.notifier = None
         
         # Load trading configuration
-        with open(config_path, 'r') as f:
-            self.trading_config = yaml.safe_load(f)
+        try:
+            with open(config_path, 'r') as f:
+                self.config = yaml.safe_load(f)
+            logger.info(f"Loaded trading configuration from {config_path}")
+        except Exception as e:
+            logger.error(f"Error loading configuration: {str(e)}")
+            self.config = {}
         
         # Track stocks that have already been recommended today
         self.ist_timezone = pytz.timezone('Asia/Kolkata')
@@ -67,9 +82,6 @@ class RecommendationGenerator:
         self.recommended_stocks: Set[str] = set()
         
         # Load previously recommended stocks if file exists
-        self.recommendations_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'recommendations')
-        os.makedirs(self.recommendations_dir, exist_ok=True)
-        
         self.today_file = os.path.join(self.recommendations_dir, f"recommendations_{self.today}.csv")
         if os.path.exists(self.today_file):
             try:
@@ -83,19 +95,19 @@ class RecommendationGenerator:
         """Get stock-specific configuration paths."""
         stock_configs = {}
         
-        if not self.trading_config['stocks']:
+        if not self.config['stocks']:
             logger.warning("No stocks found in configuration")
             return stock_configs
         
         # Check if stocks are in the new format (list of dicts)
-        if isinstance(self.trading_config['stocks'][0], dict):
-            for stock_entry in self.trading_config['stocks']:
+        if isinstance(self.config['stocks'][0], dict):
+            for stock_entry in self.config['stocks']:
                 if 'symbol' in stock_entry and 'config' in stock_entry:
                     stock_configs[stock_entry['symbol']] = stock_entry['config']
         # Old format (list of strings)
         else:
             stocks_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'stock_configs')
-            for symbol in self.trading_config['stocks']:
+            for symbol in self.config['stocks']:
                 config_path = os.path.join(stocks_dir, f"{symbol}.yaml")
                 if os.path.exists(config_path):
                     stock_configs[symbol] = config_path
@@ -255,24 +267,63 @@ class RecommendationGenerator:
             logger.info(f"New recommendations saved to {self.today_file}")
     
     def _send_notification(self, df: pd.DataFrame) -> None:
-        """Send WhatsApp notification with recommendations."""
-        if not self.enable_notifications or df.empty:
+        """
+        Send WhatsApp notification with recommendations.
+        
+        Args:
+            df: DataFrame containing recommendations
+        """
+        if not self.enable_notifications or self.notifier is None or df.empty:
             return
-            
+        
         try:
-            # Convert DataFrame to list of dictionaries for the WhatsApp notifier
-            recommendations = df.to_dict('records')
+            # Get buy recommendations only
+            buy_recommendations = df[df['recommendation'] == 'BUY']
+            
+            if buy_recommendations.empty:
+                logger.info("No buy recommendations to send notification for")
+                return
+            
+            # Format data for notification
+            recommendations = []
+            for _, row in buy_recommendations.iterrows():
+                recommendations.append({
+                    'symbol': row['symbol'],
+                    'close': row['close_price'],
+                    'quantity': row['max_quantity'],
+                    'stop_loss': row['stop_loss'] if 'stop_loss' in row and pd.notna(row['stop_loss']) else 0.0,
+                    'take_profit': row['take_profit'] if 'take_profit' in row and pd.notna(row['take_profit']) else 0.0
+                })
             
             # Send notification
-            success = self.notifier.send_recommendation_alert(recommendations)
-            
-            if success:
+            if self.notifier.send_recommendation_alert(recommendations):
                 logger.info(f"WhatsApp notification sent for {len(recommendations)} stock recommendations")
             else:
                 logger.warning("Failed to send WhatsApp notification")
                 
         except Exception as e:
             logger.error(f"Error sending WhatsApp notification: {str(e)}")
+    
+    def send_eod_summary(self, date: Optional[str] = None) -> None:
+        """
+        Send end-of-day trading summary via WhatsApp.
+        
+        Args:
+            date: Optional date string in YYYY-MM-DD format. If None, uses today's date.
+        """
+        if not self.enable_notifications or self.notifier is None:
+            logger.warning("Notifications not enabled or WhatsApp notifier not available")
+            return
+            
+        try:
+            # Send EOD summary
+            if self.notifier.send_trading_summary(date):
+                logger.info("End-of-day trading summary sent successfully")
+            else:
+                logger.warning("Failed to send end-of-day trading summary")
+                
+        except Exception as e:
+            logger.error(f"Error sending end-of-day summary: {str(e)}")
 
 def main():
     parser = argparse.ArgumentParser(description='Generate stock recommendations')
@@ -282,6 +333,10 @@ def main():
                         help='Maximum investment per stock (Rs)')
     parser.add_argument('--notifications', '-n', action='store_true',
                         help='Enable WhatsApp notifications')
+    parser.add_argument('--eod-summary', '-e', action='store_true',
+                        help='Send end-of-day summary (without generating new recommendations)')
+    parser.add_argument('--date', '-d', type=str,
+                        help='Date for EOD summary in YYYY-MM-DD format (defaults to today)')
     
     args = parser.parse_args()
     
@@ -292,6 +347,12 @@ def main():
         enable_notifications=args.notifications
     )
     
+    # Handle EOD summary mode
+    if args.eod_summary:
+        logger.info("Sending end-of-day summary")
+        generator.send_eod_summary(args.date)
+        return
+    
     # Generate recommendations
     recommendations = generator.generate_recommendations()
     
@@ -300,7 +361,7 @@ def main():
         print("\nStock Recommendations Summary:")
         print("=" * 80)
         for _, row in recommendations.iterrows():
-            print(f"{row['symbol']}: ₹{row['close']:.2f} | Quantity: {row['quantity']} | "
+            print(f"{row['symbol']}: ₹{row['close_price']:.2f} | Quantity: {row['max_quantity']} | "
                   f"Stop Loss: ₹{row['stop_loss']:.2f} | Take Profit: ₹{row['take_profit']:.2f}")
         print("=" * 80)
         print(f"Total recommendations: {len(recommendations)}")
@@ -309,6 +370,12 @@ def main():
             print("WhatsApp notification has been sent!")
     else:
         print("\nNo buy signals detected for any stocks at this time.")
+    
+    # Send EOD summary if it's end of day (after 4:00 PM IST)
+    ist_now = datetime.now(pytz.timezone('Asia/Kolkata'))
+    if ist_now.hour >= 16 and args.notifications:
+        logger.info("Sending end-of-day summary after recommendation generation")
+        generator.send_eod_summary()
 
 if __name__ == "__main__":
     main() 

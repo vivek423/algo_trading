@@ -34,6 +34,7 @@ The easiest way to set up the crontab is using the provided setup script:
 
 The script will:
 - Detect your project path automatically
+- Detect your Python executable path
 - Generate the proper crontab configuration
 - Backup your existing crontab (if any)
 - Install the new crontab
@@ -47,9 +48,14 @@ If you prefer to set up the crontab manually:
    cp crontab_config_template.txt crontab_config.txt
    ```
 
-2. Edit the new file to replace `{{PROJECT_PATH}}` with your actual project path:
+2. Edit the new file to replace the placeholders:
    ```bash
+   # Get your Python path
+   PYTHON_PATH=$(which python)
+   
+   # Replace placeholders
    sed -i '' "s|{{PROJECT_PATH}}|$(pwd)|g" crontab_config.txt
+   sed -i '' "s|{{PYTHON_PATH}}|${PYTHON_PATH}|g" crontab_config.txt
    ```
 
 3. Install the crontab:
@@ -89,4 +95,6 @@ If you encounter issues with your scheduled tasks:
 1. Check the log files in the `logs/` directory
 2. Verify that the crontab is installed: `crontab -l`
 3. Make sure the scripts have execution permissions: `chmod +x scripts/*.py`
-4. Ensure your environment variables are properly set up in your `.env` file 
+4. Ensure your environment variables are properly set up in your `.env` file
+5. If seeing "command not found" errors, check that the Python path in your crontab is correct
+6. Make sure your virtual environment is properly activated in the crontab if you're using one 

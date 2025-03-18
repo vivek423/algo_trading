@@ -10,8 +10,20 @@ PROJECT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 TEMPLATE_FILE="${PROJECT_PATH}/crontab_config_template.txt"
 OUTPUT_FILE="${PROJECT_PATH}/crontab_config.txt"
 
+# Get Python executable path
+PYTHON_PATH=$(which python)
+if [ -z "$PYTHON_PATH" ]; then
+    # Try python3 if python is not found
+    PYTHON_PATH=$(which python3)
+    if [ -z "$PYTHON_PATH" ]; then
+        echo "Error: Could not find python or python3 executable"
+        exit 1
+    fi
+fi
+
 echo "Setting up crontab for algorithmic trading system..."
 echo "Project path: ${PROJECT_PATH}"
+echo "Python path: ${PYTHON_PATH}"
 
 # Check if template exists
 if [ ! -f "$TEMPLATE_FILE" ]; then
@@ -21,7 +33,7 @@ fi
 
 # Generate crontab file from template
 echo "Generating crontab configuration..."
-sed "s|{{PROJECT_PATH}}|${PROJECT_PATH}|g" "$TEMPLATE_FILE" > "$OUTPUT_FILE"
+sed -e "s|{{PROJECT_PATH}}|${PROJECT_PATH}|g" -e "s|{{PYTHON_PATH}}|${PYTHON_PATH}|g" "$TEMPLATE_FILE" > "$OUTPUT_FILE"
 
 echo "Crontab configuration has been generated at: ${OUTPUT_FILE}"
 
