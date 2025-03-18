@@ -1,0 +1,7 @@
+# Crontab configuration for automated trading
+# Min Hour Day Month Weekday Command
+# Run daily at 8:30 AM on weekdays (Monday-Friday)
+30 8 * * 1-5 cd /Users/vivek_kapoor/projects/algo_trading && ./daily_trading_automation.sh
+
+# Optional: Send an email notification when the job completes
+# 35 8 * * 1-5 cd /Users/vivek_kapoor/projects/algo_trading && cat data/recommendations/latest_recommendations.csv | mail -s "Daily Trading Recommendations" your-email@example.com 

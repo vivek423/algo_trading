@@ -353,3 +353,48 @@ Stock-specific optimization demonstrates dramatically improved performance compa
 © 2024 DataBull. All rights reserved.
 
 This is proprietary software. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited.
+
+## Daily Trading Automation
+
+The system includes a complete workflow for daily trading operations:
+
+1. **Automated Data Fetching and Analysis**
+   ```bash
+   # Run the complete daily automation
+   ./daily_trading_automation.sh
+   ```
+   
+   This script:
+   - Fetches the latest market data
+   - Runs technical analysis with optimized parameters
+   - Generates daily buy/sell/hold recommendations
+   - Creates a recommendations CSV file with a max investment of ₹50,000 per stock
+
+2. **Daily Recommendations CSV**
+   
+   The system generates two recommendation files:
+   - `data/recommendations/stock_recommendations_YYYYMMDD.csv`: Date-specific recommendations
+   - `data/recommendations/latest_recommendations.csv`: Always points to the most recent recommendations
+   
+   Each recommendation includes:
+   - Symbol
+   - Current price
+   - Buy/Sell/Hold recommendation
+   - Confidence score
+   - Maximum quantity to trade
+   - Recommended investment amount (max ₹50,000)
+   - Stop-loss and take-profit levels
+   - Reason for the recommendation
+
+3. **Scheduling with Cron**
+   
+   To run the automation daily before market open:
+   ```bash
+   # Install the cron job (runs at 8:30 AM on weekdays)
+   crontab crontab_trading.txt
+   
+   # Check that the cron job is installed
+   crontab -l
+   ```
+
+The recommendations are based on technical analysis signals that are customized for each stock through the optimization process. This provides a daily roadmap for trading decisions that you can follow manually.
