@@ -1,0 +1,40 @@
+# Algorithmic Trading System - Crontab Configuration
+#
+# This crontab runs:
+# 1. Data fetcher (9:17 AM to 4:15 PM, hourly, weekdays)
+# 2. Recommendation generator (5 minutes after each data fetch)
+# 3. End-of-day runs for both
+#
+# HOW TO USE:
+# 1. Copy this file to crontab_config.txt
+# 2. Replace {{PROJECT_PATH}} with your actual project path
+# 3. Install with: crontab crontab_config.txt
+#
+# Format: minute hour day-of-month month day-of-week command
+
+# Stock data fetcher - run hourly during trading hours
+17 9 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+17 10 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+17 11 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+17 12 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+17 13 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+17 14 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+17 15 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+17 16 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher.log 2>&1
+
+# Recommendation generator - run 5 minutes after each data fetch (with WhatsApp notifications)
+22 9 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+22 10 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+22 11 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+22 12 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+22 13 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+22 14 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+22 15 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+22 16 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations.log 2>&1
+
+# End of day run (after market closes)
+30 16 * * 1-5 cd {{PROJECT_PATH}} && python scripts/data_fetcher.py > logs/data_fetcher_eod.log 2>&1
+35 16 * * 1-5 cd {{PROJECT_PATH}} && python scripts/generate_recommendations.py --notifications > logs/recommendations_eod.log 2>&1
+
+# Check that cron jobs are running properly (every day at 10:00 AM)
+0 10 * * * cd {{PROJECT_PATH}} && python scripts/check_cron.py > logs/check_cron.log 2>&1 

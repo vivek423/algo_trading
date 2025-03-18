@@ -55,4 +55,5 @@ data/outputs/*
 session.json
 *.log
 crontab_config.txt
+crontab_backup.txt
 *.csv  # Ignore all CSV files 

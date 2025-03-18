@@ -1,5 +1,5 @@
 kiteconnect
-python-dotenv
+python-dotenv==1.0.0
 requests
 numpy
 pandas
@@ -41,3 +41,4 @@ statsmodels
 fsspec>=2023.5.0
 catboost
 pandas_ta
+twilio==8.4.0
