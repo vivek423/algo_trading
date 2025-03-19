@@ -1,6 +1,6 @@
 # Algorithmic Trading System
 
-A Python-based algorithmic trading system that fetches market data from Zerodha's Kite Connect API, performs technical analysis, optimizes parameters, and back-tests trading strategies.
+A Python-based algorithmic trading system that fetches market data from Zerodha's Kite Connect API, performs technical analysis, optimizes parameters, back-tests trading strategies, and sends WhatsApp notifications for trading signals.
 
 ## Project Structure
 
@@ -12,7 +12,8 @@ algo_trading/
 │   └── stock_configs/             # Stock-specific indicator parameters
 ├── data/
 │   ├── inputs/                    # Raw OHLC data
-│   └── outputs/                   # Processed data with indicators
+│   ├── outputs/                   # Processed data with indicators
+│   └── recommendations/           # Daily stock recommendations
 ├── logs/                         # Application logs & performance reports
 ├── scripts/
 │   ├── data_fetcher.py           # Fetches OHLC data from Kite Connect
@@ -21,9 +22,18 @@ algo_trading/
 │   ├── grid_search.py            # Global parameter optimization
 │   ├── stock_grid_search.py      # Stock-specific parameter optimization
 │   ├── update_config.py          # Auto-updates config with best params
-│   └── get_request_token.py       # Kite Connect authentication
+│   ├── generate_recommendations.py # Generates trading recommendations
+│   ├── whatsapp_notifier.py      # Sends WhatsApp notifications
+│   ├── setup_crontab.sh          # Crontab setup automation script
+│   ├── check_cron.py             # Monitors cron job execution
+│   ├── get_request_token.py       # Kite Connect authentication
+│   └── session_manager.py        # Manages API session
 ├── .env                          # API credentials (not tracked in git)
+├── .env.sample                   # Sample environment variables
+├── crontab_config_template.txt   # Template for crontab configuration
 ├── requirements.txt              # Python dependencies
+├── CRONTAB_SETUP.md              # Crontab setup instructions
+├── WHATSAPP_NOTIFICATIONS.md     # WhatsApp notification setup guide
 └── README.md                     # This file
 ```
 
@@ -68,6 +78,13 @@ algo_trading/
    - Automatic configuration updates with best parameters
    - Memory-efficient processing of large parameter spaces
 
+5. **Trading Recommendations**
+   - Daily stock recommendations based on technical analysis
+   - Investment amount calculation based on configured maximum investment
+   - Stop-loss and take-profit levels for risk management
+   - WhatsApp notifications for trading signals
+   - End-of-day trading summary reports
+
 ## Setup
 
 1. **Environment Setup**
@@ -81,10 +98,17 @@ algo_trading/
    ```
 
 2. **API Configuration**
-   Create a `.env` file with your Kite Connect credentials:
+   Create a `.env` file with your API credentials (copy from `.env.sample`):
    ```
-   KITE_API_KEY=your_api_key
-   KITE_API_SECRET=your_api_secret
+   # Zerodha credentials
+   API_KEY=your_zerodha_api_key
+   API_SECRET=your_zerodha_api_secret
+   
+   # Twilio credentials (for WhatsApp notifications)
+   TWILIO_ACCOUNT_SID=your_twilio_account_sid
+   TWILIO_AUTH_TOKEN=your_twilio_auth_token
+   TWILIO_FROM_NUMBER=your_twilio_whatsapp_number
+   TWILIO_TO_NUMBER=your_personal_whatsapp_number
    ```
 
 3. **Authentication**
@@ -92,6 +116,18 @@ algo_trading/
    python scripts/get_request_token.py
    ```
    Follow the browser prompt to log in to your Zerodha account.
+
+4. **Crontab Setup**
+   ```bash
+   # Automated setup
+   ./scripts/setup_crontab.sh
+   
+   # Or manual setup
+   cp crontab_config_template.txt crontab_config.txt
+   # Edit crontab_config.txt to replace {{PROJECT_PATH}} with your actual path
+   crontab crontab_config.txt
+   ```
+   See `CRONTAB_SETUP.md` for detailed instructions.
 
 ## Usage
 
@@ -120,7 +156,8 @@ algo_trading/
 3. **Schedule Data Fetching**
    
    ```bash
-   crontab crontab_config.txt
+   # Use the setup script
+   ./scripts/setup_crontab.sh
    ```
 
 ### Technical Analysis
@@ -144,6 +181,35 @@ algo_trading/
      --output data/outputs/all_stocks_optimized_indicators.csv
    ```
    This automatically uses stock-specific configurations from `config/stock_configs/` when available.
+
+### Trading Recommendations
+
+1. **Generate Recommendations**
+   ```bash
+   python scripts/generate_recommendations.py --config config/trading_config.yaml --notifications
+   ```
+   This will:
+   - Analyze all stocks in the trading configuration
+   - Generate buy/sell/hold signals
+   - Send WhatsApp notifications for buy signals
+   - Create a recommendations file in `data/recommendations/`
+
+2. **View Recommendations**
+   ```bash
+   # List the latest recommendations
+   ls -l data/recommendations/
+   
+   # View the latest file
+   cat data/recommendations/recommendations_YYYY-MM-DD.csv
+   ```
+
+3. **End-of-Day Summary**
+   The system automatically sends an end-of-day summary via WhatsApp with:
+   - Total number of stocks analyzed
+   - Buy/sell/hold signal counts
+   - Total potential investment
+   - Details of recommended stocks
+   - Potential profit and maximum loss for each recommendation
 
 ### Performance Analysis
 
@@ -284,6 +350,20 @@ If you prefer the traditional approach with consolidated files:
    ```bash
    python scripts/performance_analyzer.py --input data/outputs/all_stocks_optimized_indicators.csv --output logs/optimized_performance --use-stock-configs --max-investment 5000 --initial-capital 10000
    ```
+
+## WhatsApp Notifications
+
+The system sends WhatsApp notifications for:
+
+1. **Trading Signals**: When a new buy signal is detected
+2. **End-of-Day Summary**: Daily summary of all trading recommendations
+
+To configure WhatsApp notifications:
+1. Create a Twilio account and activate the WhatsApp Sandbox
+2. Add the credentials to your `.env` file
+3. Enable notifications with the `--notifications` flag (enabled by default in crontab)
+
+See `WHATSAPP_NOTIFICATIONS.md` for detailed setup instructions.
 
 ## Performance Metrics Explained
 
