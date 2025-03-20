@@ -81,8 +81,15 @@ class RecommendationGenerator:
         self.today = datetime.now(self.ist_timezone).strftime('%Y-%m-%d')
         self.recommended_stocks: Set[str] = set()
         
+        # Format date for filename (YYYYMMDD)
+        date_for_file = self.today.replace('-', '')
+        
         # Load previously recommended stocks if file exists
-        self.today_file = os.path.join(self.recommendations_dir, f"recommendations_{self.today}.csv")
+        self.today_file = os.path.join(self.recommendations_dir, f"stock_recommendations_{date_for_file}.csv")
+        
+        # Also save to a fixed "latest" file for convenience
+        self.latest_file = os.path.join(self.recommendations_dir, "latest_recommendations.csv")
+        
         if os.path.exists(self.today_file):
             try:
                 df = pd.read_csv(self.today_file)
@@ -260,10 +267,14 @@ class RecommendationGenerator:
             
             # Save combined recommendations
             combined_df.to_csv(self.today_file, index=False)
+            # Also save to latest file
+            combined_df.to_csv(self.latest_file, index=False)
             logger.info(f"Updated recommendations saved to {self.today_file}")
         else:
             # Save new recommendations
             df.to_csv(self.today_file, index=False)
+            # Also save to latest file
+            df.to_csv(self.latest_file, index=False)
             logger.info(f"New recommendations saved to {self.today_file}")
     
     def _send_notification(self, df: pd.DataFrame) -> None:
