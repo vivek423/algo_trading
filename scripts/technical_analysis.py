@@ -6,6 +6,7 @@ from typing import Optional, Dict, Union, List
 import logging
 import glob
 import sys
+from datetime import datetime
 
 # Configure logging
 log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
@@ -329,7 +330,6 @@ def main():
     
     parser = argparse.ArgumentParser(description='Calculate technical indicators for stock data.')
     parser.add_argument('--input', '-i', help='Path to input CSV file with OHLC data')
-    parser.add_argument('--output', '-o', help='Path to output CSV file for indicators')
     parser.add_argument('--config', '-c', help='Path to technical indicators configuration file')
     parser.add_argument('--all', '-a', action='store_true', help='Process all stocks from trading config')
     parser.add_argument('--trading-config', '-t', default='config/trading_config.yaml', 
@@ -339,16 +339,23 @@ def main():
     
     args = parser.parse_args()
     
+    # Create output directory
+    output_dir = 'data/outputs/indicators'
+    os.makedirs(output_dir, exist_ok=True)
+    
     # Validate arguments
     if args.all:
-        if args.input or not args.output:
-            parser.error("When using --all, don't specify --input but --output is required")
+        if args.input:
+            parser.error("When using --all, don't specify --input")
     else:
-        if not args.input or not args.output:
-            parser.error("--input and --output are required when not using --all")
+        if not args.input:
+            parser.error("--input is required when not using --all")
     
     try:
         if args.all:
+            # Define hardcoded output path for --all option
+            output_file = os.path.join(output_dir, f"all_indicators_{datetime.now().strftime('%Y%m%d')}.csv")
+            
             # Process all stocks from trading config
             trading_config_path = args.trading_config
             with open(trading_config_path, 'r') as f:
@@ -400,8 +407,8 @@ def main():
             if all_results:
                 # Combine all results
                 combined_df = pd.concat(all_results)
-                combined_df.to_csv(args.output)
-                logger.info(f"Combined technical indicators for {len(all_results)} stocks saved to {args.output}")
+                combined_df.to_csv(output_file)
+                logger.info(f"Combined technical indicators for {len(all_results)} stocks saved to {output_file}")
             else:
                 logger.error("No stock data was processed. Check input directory and stock symbols.")
         else:
@@ -416,8 +423,11 @@ def main():
             stock_symbol = os.path.basename(args.input).split('_')[0]
             df_with_indicators['symbol'] = stock_symbol
             
-            df_with_indicators.to_csv(args.output)
-            logger.info(f"Technical indicators saved to {args.output}")
+            # Define hardcoded output path for single stock
+            output_file = os.path.join(output_dir, f"{stock_symbol}_indicators.csv")
+            
+            df_with_indicators.to_csv(output_file)
+            logger.info(f"Technical indicators saved to {output_file}")
         
     except Exception as e:
         logger.error(f"Error processing technical indicators: {str(e)}")

@@ -52,7 +52,7 @@ class RecommendationGenerator:
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.data_dir = os.path.join(self.base_dir, 'data')
         self.stock_dir = os.path.join(self.data_dir, 'inputs')
-        self.recommendations_dir = os.path.join(self.data_dir, 'recommendations')
+        self.recommendations_dir = os.path.join(self.data_dir, 'outputs', 'recommendations')
         
         # Create recommendations directory if it doesn't exist
         os.makedirs(self.recommendations_dir, exist_ok=True)

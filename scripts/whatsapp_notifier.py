@@ -7,9 +7,10 @@ from twilio.rest import Client
 import pandas as pd
 from datetime import datetime
 import pytz
+from setup_logging import setup_logging
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = setup_logging("whatsapp_notifier")
 
 class WhatsAppNotifier:
     """
@@ -122,17 +123,14 @@ class WhatsAppNotifier:
         Returns:
             bool: True if message was sent successfully, False otherwise
         """
-        # Get the current date in IST if not provided
+        # Get today's recommendations file
         if date is None:
-            ist_now = datetime.now(pytz.timezone('Asia/Kolkata'))
-            date = ist_now.strftime('%Y-%m-%d')
+            ist_timezone = pytz.timezone('Asia/Kolkata')
+            date = datetime.now(ist_timezone).strftime('%Y-%m-%d')
         
-        # Format date for filename (YYYYMMDD)
         date_for_file = date.replace('-', '')
-        
-        # Construct path to recommendations file
-        recommendations_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                           'data', 'recommendations')
+        recommendations_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                         'data', 'outputs', 'recommendations')
         recommendations_file = os.path.join(recommendations_dir, f'stock_recommendations_{date_for_file}.csv')
         
         # Check if recommendations file exists
@@ -234,12 +232,7 @@ class WhatsAppNotifier:
 
 # Test code (runs when script is executed directly)
 if __name__ == "__main__":
-    # Configure logging for testing
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
-    
+    # Configure logging for testing is already done above
     try:
         # Initialize notifier
         notifier = WhatsAppNotifier()

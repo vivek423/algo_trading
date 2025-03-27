@@ -21,19 +21,19 @@ ema:
 
 # Bollinger Bands Parameters
 bollinger_bands:
-  length: 20
-  std: 2.0
+  length: 30
+  std: 2.2
 
 # RSI Parameters
 rsi:
-  length: 20
+  length: 14
   oversold: 30
   overbought: 65
 
 # Risk Management Parameters
 risk_management:
-  stop_loss_atr_multiplier: 2.5
-  take_profit_atr_multiplier: 2.0
+  stop_loss_atr_multiplier: 2.0
+  take_profit_atr_multiplier: 3.0
 
 # Default column names
 columns:

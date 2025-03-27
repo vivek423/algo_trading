@@ -26,8 +26,8 @@ bollinger_bands:
 
 # RSI Parameters
 rsi:
-  length: 10
-  oversold: 25
+  length: 20
+  oversold: 35
   overbought: 65
 
 # Risk Management Parameters

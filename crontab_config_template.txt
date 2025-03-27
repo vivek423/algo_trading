@@ -6,6 +6,12 @@
 # 3. End-of-day runs for both
 # 4. Daily trading summary (sent at 4:45 PM)
 #
+# Directory Structure:
+# - Recommendations are saved to: data/outputs/recommendations/
+# - Technical indicators are saved to: data/outputs/indicators/
+# - Performance analysis is saved to: data/outputs/performance/
+# - Grid search results are saved to: data/outputs/grid_search/
+#
 # HOW TO USE:
 # 1. Copy this file to crontab_config.txt
 # 2. Replace {{PROJECT_PATH}} with your actual project path

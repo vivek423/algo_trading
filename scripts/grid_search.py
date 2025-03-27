@@ -411,15 +411,24 @@ class GridSearchOptimizer:
                 self.logger.info(f"Testing combination {i}/{len(combinations)}")
                 result = self.evaluate_parameters(params)
                 if result:
+                    # Handle the case where no trades are generated
+                    if 'total_trades' not in result:
+                        self.logger.warning(f"Combination {i} - No trade data available, skipping")
+                        continue
+                        
                     results.append(result)
                     # Format percentages properly
-                    win_rate_pct = result['win_rate']
-                    cagr_pct = result['cagr']
-                    self.logger.info(f"Combination {i} - Trades: {result['total_trades']}, "
+                    win_rate_pct = result.get('win_rate', 0)
+                    cagr_pct = result.get('cagr', 0)
+                    trades = result.get('total_trades', 0)
+                    pnl = result.get('realized_pnl', 0)
+                    sharpe = result.get('sharpe_ratio', 0)
+                    
+                    self.logger.info(f"Combination {i} - Trades: {trades}, "
                                      f"Win Rate: {win_rate_pct:.2f}%, "
-                                     f"Sharpe: {result['sharpe_ratio']:.4f}, "
+                                     f"Sharpe: {sharpe:.4f}, "
                                      f"CAGR: {cagr_pct:.2f}%, "
-                                     f"PnL: {result['realized_pnl']:.2f}")
+                                     f"PnL: {pnl:.2f}")
             
             if not results:
                 self.logger.error("No valid results were generated during grid search")
@@ -491,36 +500,93 @@ class GridSearchOptimizer:
         self.logger.info(f"Results saved to: {self.output_dir}")
 
 def main():
-    parser = argparse.ArgumentParser(description='Run grid search optimization for technical indicators')
-    parser.add_argument('--input', help='Path to input CSV file with combined OHLC data for all stocks')
-    parser.add_argument('--input-dir', help='Directory containing individual stock OHLC data files')
-    parser.add_argument('--output', required=True, help='Directory to save results')
-    parser.add_argument('--max-combinations', type=int, help='Maximum number of combinations to test')
+    """Main function to run grid search for parameter optimization"""
+    parser = argparse.ArgumentParser(description='Grid search for stock trading parameters')
+    parser.add_argument('--input', required=True, help='Input CSV file with technical indicators')
     parser.add_argument('--max-investment', type=float, default=5000, help='Maximum investment per trade')
-    parser.add_argument('--initial-capital', type=float, default=10000, help='Initial capital for portfolio')
-    parser.add_argument('--stocks', nargs='+', help='Specific stocks to optimize for')
-    parser.add_argument('--trading-config', help='Path to trading configuration file')
+    parser.add_argument('--initial-capital', type=float, default=10000, help='Initial capital')
+    parser.add_argument('--metric', choices=['sharpe_ratio', 'cagr', 'win_rate', 'total_pnl'], 
+                        default='sharpe_ratio', help='Performance metric to optimize')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of stocks to process')
+    parser.add_argument('--max-combinations', type=int, default=5000, 
+                       help='Maximum number of parameter combinations to test')
+    parser.add_argument('--max-processes', type=int, default=None, 
+                       help='Maximum number of CPU processes to use (default: use all available)')
     
     args = parser.parse_args()
     
-    if not args.input and not args.input_dir:
-        print("Error: Either --input or --input-dir must be specified")
-        sys.exit(1)
+    # Hardcoded output directory
+    output_dir = 'data/outputs/grid_search'
+    os.makedirs(output_dir, exist_ok=True)
     
     try:
-        optimizer = GridSearchOptimizer(
-            data_path=args.input,
-            input_dir=args.input_dir,
-            output_dir=args.output,
-            max_investment_per_trade=args.max_investment,
-            initial_capital=args.initial_capital,
-            stocks=args.stocks,
-            trading_config=args.trading_config
-        )
-        optimizer.run_grid_search(args.max_combinations)
+        # Load the input data
+        logger.info(f"Loading input data from {args.input}")
+        df = pd.read_csv(args.input)
+        
+        # Check for required columns
+        required_columns = ['symbol', 'timestamp', 'open', 'high', 'low', 'close', 'volume']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            logger.error(f"Missing required columns in input data: {missing_columns}")
+            return
+            
+        # Convert timestamp to datetime
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        
+        # Get the list of stocks
+        stocks = df['symbol'].unique()
+        num_stocks = len(stocks)
+        logger.info(f"Found {num_stocks} stocks in the input data")
+        
+        # Apply limit if specified
+        if args.limit and args.limit < num_stocks:
+            logger.info(f"Limiting to {args.limit} stocks")
+            stocks = stocks[:args.limit]
+        
+        # Generate parameter grid
+        param_grid, parameter_info = generate_parameter_grid()
+        num_combinations = len(param_grid)
+        logger.info(f"Generated parameter grid with {num_combinations} combinations")
+        
+        # Limit combinations if needed
+        if args.max_combinations and num_combinations > args.max_combinations:
+            logger.info(f"Limiting to {args.max_combinations} combinations")
+            param_grid = param_grid[:args.max_combinations]
+        
+        # Run grid search
+        results_df = run_grid_search(df, param_grid, args.initial_capital, args.max_investment)
+        
+        # Calculate combined metrics
+        results_df = calculate_metrics(results_df, args.metric)
+        
+        # Sort by selected metric
+        results_df = results_df.sort_values(args.metric, ascending=False)
+        
+        # Save results
+        metrics_file = os.path.join(output_dir, 'grid_search_results.csv')
+        results_df.to_csv(metrics_file, index=False)
+        logger.info(f"Saved grid search results to {metrics_file}")
+        
+        # Save top configurations
+        top_configs_file = os.path.join(output_dir, 'top_configurations.yaml')
+        top_configs = format_configurations(results_df.head(10), parameter_info)
+        
+        with open(top_configs_file, 'w') as f:
+            yaml.dump(top_configs, f, default_flow_style=False)
+        logger.info(f"Saved top configurations to {top_configs_file}")
+        
+        # Print summary of the best config
+        print("\nGrid Search Complete!")
+        print(f"Best configuration ({args.metric}={results_df.iloc[0][args.metric]:.4f}):")
+        for param, value in top_configs[0].items():
+            print(f"  {param}: {value}")
+        
     except Exception as e:
-        print(f"Error: {str(e)}")
-        sys.exit(1)
+        logger.error(f"Error in grid search: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise
 
 if __name__ == "__main__":
     main() 

@@ -1,0 +1,44 @@
+additional_capital_required: 0
+avg_capital_utilization: 0
+avg_trade_duration: 28.404255319148938
+cagr: !!python/object/apply:numpy.core.multiarray.scalar
+- &id001 !!python/object/apply:numpy.dtype
+  args:
+  - f8
+  - false
+  - true
+  state: !!python/tuple
+  - 3
+  - <
+  - null
+  - null
+  - null
+  - -1
+  - -1
+  - 0
+- !!binary |
+  ZCk3Kmq5SUA=
+final_capital: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  ElSul1l+W0E=
+initial_capital: 1000000.0
+losing_trades: 51
+max_capital_used: 1000000.0
+max_concurrent_trades: 10
+max_drawdown: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  WxLgv35CI0A=
+realized_pnl: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  ElSul8mtV0E=
+sharpe_ratio: !!python/object/apply:numpy.core.multiarray.scalar
+- *id001
+- !!binary |
+  aNY4sHWMwD8=
+total_trades: 188
+unrealized_pnl: 0
+win_rate: 72.87234042553192
+winning_trades: 137

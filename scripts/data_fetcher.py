@@ -13,13 +13,10 @@ from tqdm import tqdm
 import backoff
 import yaml
 import pytz
+from setup_logging import setup_script_logging
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = setup_script_logging()
 
 class DataFetcher:
     def __init__(self, config_path: str = None, max_workers: int = 5, retry_attempts: int = 3):

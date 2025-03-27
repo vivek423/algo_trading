@@ -12,9 +12,13 @@ algo_trading/
 │   └── stock_configs/             # Stock-specific indicator parameters
 ├── data/
 │   ├── inputs/                    # Raw OHLC data
-│   ├── outputs/                   # Processed data with indicators
-│   └── recommendations/           # Daily stock recommendations
-├── logs/                         # Application logs & performance reports
+│   └── outputs/                   # Processed data with indicators
+│       ├── indicators/            # Technical indicator outputs
+│       ├── performance/           # Performance analysis results
+│       ├── grid_search/           # Global grid search results
+│       ├── stock_grid_search/     # Stock-specific grid search results
+│       └── recommendations/       # Daily stock recommendations
+├── logs/                         # Application logs
 ├── scripts/
 │   ├── data_fetcher.py           # Fetches OHLC data from Kite Connect
 │   ├── technical_analysis.py      # Technical analysis calculations
@@ -85,6 +89,60 @@ algo_trading/
    - WhatsApp notifications for trading signals
    - End-of-day trading summary reports
 
+### Trading Recommendations
+
+1. **Generate Recommendations**
+   ```bash
+   python scripts/generate_recommendations.py --config config/trading_config.yaml --notifications
+   ```
+   This will:
+   - Analyze all stocks in the trading configuration
+   - Generate buy/sell/hold signals
+   - Send WhatsApp notifications for buy signals
+   - Create a recommendations file in `data/outputs/recommendations/`
+
+2. **View Recommendations**
+   ```bash
+   # List the latest recommendations
+   ls -l data/outputs/recommendations/
+   
+   # View the latest file
+   cat data/outputs/recommendations/stock_recommendations_YYYYMMDD.csv
+   ```
+
+## Standardized Output Directory Structure
+
+All outputs are organized into standardized directories for easier management:
+
+1. **Technical Analysis**: `data/outputs/indicators/`
+   - Combined indicators: `all_indicators_YYYYMMDD.csv`
+   - Individual stock indicators: `{SYMBOL}_indicators.csv`
+
+2. **Performance Analysis**: `data/outputs/performance/`
+   - Overall metrics: `overall_metrics.yaml`
+   - Yearly summary: `yearly_summary.csv`
+   - Trade log: `trade_log.csv`
+
+3. **Grid Search**: `data/outputs/grid_search/`
+   - Grid search results: `grid_search_results.csv`
+   - Top configurations: `top_configurations.yaml`
+
+4. **Stock Grid Search**: `data/outputs/stock_grid_search/{SYMBOL}/`
+   - Stock-specific results: `grid_search_results.csv`
+   - Stock-specific configurations: `top_configurations.yaml`
+   - Best config: `best_config.yaml`
+   
+5. **Recommendations**: `data/outputs/recommendations/`
+   - Daily recommendations: `stock_recommendations_YYYYMMDD.csv`
+   - Latest recommendations: `latest_recommendations.csv`
+
+6. **Logs**: `logs/`
+   - Script-specific logs: `{script_name}.log`
+   - Grid search logs: `grid_search.log`
+   - Stock-specific grid search logs: `stock_grid_search/{SYMBOL}/grid_search.log`
+   
+All scripts use these hardcoded paths - you no longer need to specify output directories or log paths.
+
 ## Setup
 
 1. **Environment Setup**
@@ -127,309 +185,4 @@ algo_trading/
    # Edit crontab_config.txt to replace {{PROJECT_PATH}} with your actual path
    crontab crontab_config.txt
    ```
-   See `CRONTAB_SETUP.md` for detailed instructions.
-
-## Usage
-
-### Data Fetching
-
-1. **Configure Stock Selection**
-   
-   Edit `config/trading_config.yaml`:
-   ```yaml
-   # For specific stocks with stock-specific configs
-   stocks:
-     - symbol: RELIANCE
-       config: config/stock_configs/RELIANCE.yaml
-     - symbol: TCS
-       config: config/stock_configs/TCS.yaml
-   
-   # Or for all equity stocks (old format)
-   stocks: all
-   ```
-
-2. **Run Data Fetcher**
-   ```bash
-   python scripts/data_fetcher.py
-   ```
-
-3. **Schedule Data Fetching**
-   
-   ```bash
-   # Use the setup script
-   ./scripts/setup_crontab.sh
-   ```
-
-### Technical Analysis
-
-1. **Configure Indicators**
-   
-   Edit `config/technical_indicators.yaml` for default parameters or create stock-specific configurations in `config/stock_configs/`.
-
-2. **Process Single Stock**
-   ```bash
-   python scripts/technical_analysis.py \
-     --input data/inputs/RELIANCE_day.csv \
-     --output data/outputs/RELIANCE_indicators.csv \
-     --config config/stock_configs/RELIANCE.yaml
-   ```
-
-3. **Process All Stocks with Stock-Specific Configurations**
-   ```bash
-   python scripts/technical_analysis.py \
-     --all \
-     --output data/outputs/all_stocks_optimized_indicators.csv
-   ```
-   This automatically uses stock-specific configurations from `config/stock_configs/` when available.
-
-### Trading Recommendations
-
-1. **Generate Recommendations**
-   ```bash
-   python scripts/generate_recommendations.py --config config/trading_config.yaml --notifications
-   ```
-   This will:
-   - Analyze all stocks in the trading configuration
-   - Generate buy/sell/hold signals
-   - Send WhatsApp notifications for buy signals
-   - Create a recommendations file in `data/recommendations/`
-
-2. **View Recommendations**
-   ```bash
-   # List the latest recommendations
-   ls -l data/recommendations/
-   
-   # View the latest file
-   cat data/recommendations/recommendations_YYYY-MM-DD.csv
-   ```
-
-3. **End-of-Day Summary**
-   The system automatically sends an end-of-day summary via WhatsApp with:
-   - Total number of stocks analyzed
-   - Buy/sell/hold signal counts
-   - Total potential investment
-   - Details of recommended stocks
-   - Potential profit and maximum loss for each recommendation
-
-### Performance Analysis
-
-1. **Run Backtest with Default Parameters**
-   ```bash
-   python scripts/performance_analyzer.py \
-     --input data/outputs/all_stocks_indicators.csv \
-     --output logs/default_performance \
-     --max-investment 5000 \
-     --initial-capital 10000
-   ```
-
-2. **Run Backtest with Stock-Specific Configurations**
-   ```bash
-   python scripts/performance_analyzer.py \
-     --input data/outputs/all_stocks_optimized_indicators.csv \
-     --output logs/optimized_performance \
-     --use-stock-configs \
-     --max-investment 5000 \
-     --initial-capital 10000
-   ```
-
-3. **View Results**
-   - Check the console output for summary metrics
-   - Detailed reports are saved in the output directory:
-     - `overall_metrics.yaml`: Full performance metrics
-     - `yearly_summary.csv`: Year-by-year performance
-     - `trade_log.csv`: Detailed record of all trades
-
-### Parameter Optimization
-
-1. **Run Global Grid Search for All Stocks Combined**
-   ```bash
-   # Using consolidated indicators file (traditional approach)
-   python scripts/grid_search.py \
-     --input data/outputs/all_stocks_indicators.csv \
-     --output logs \
-     --max-investment 5000 \
-     --initial-capital 10000 \
-     --max-combinations 1000
-     
-   # Using individual stock files directly (more efficient approach)
-   python scripts/grid_search.py \
-     --input-dir data/inputs \
-     --trading-config config/trading_config.yaml \
-     --output logs \
-     --max-investment 5000 \
-     --initial-capital 10000 \
-     --max-combinations 1000
-   ```
-
-2. **Run Grid Search for Individual Stocks**
-   ```bash
-   # Using consolidated indicators file (traditional approach)
-   python scripts/stock_grid_search.py \
-     --input data/outputs/all_stocks_indicators.csv \
-     --output logs/stock_grid_search \
-     --max-combinations 10000
-   
-   # Using individual stock files directly (more efficient approach)
-   python scripts/stock_grid_search.py \
-     --input-dir data/inputs \
-     --output logs/stock_grid_search \
-     --max-combinations 10000
-     
-   # Optimize for specific stocks
-   python scripts/stock_grid_search.py \
-     --input-dir data/inputs \
-     --output logs/stock_grid_search \
-     --stocks RELIANCE TCS HDFCBANK \
-     --max-combinations 10000
-   ```
-
-3. **Auto-Update Configuration with Best Parameters**
-   ```bash
-   # Update global config with best Sharpe Ratio (default)
-   python scripts/update_config.py
-   
-   # Or optimize for CAGR
-   python scripts/update_config.py --metric cagr
-   
-   # Or optimize for Win Rate
-   python scripts/update_config.py --metric win_rate
-   ```
-
-### Complete Workflow for Stock-Specific Optimization
-
-For best results, follow this complete workflow:
-
-1. **Fetch OHLC data for all stocks**
-   ```bash
-   python scripts/data_fetcher.py
-   ```
-
-2. **Run stock-specific grid search directly on raw data files**
-   ```bash
-   python scripts/stock_grid_search.py \
-     --input-dir data/inputs \
-     --output logs/stock_grid_search \
-     --max-combinations 10000
-   ```
-
-3. **Run performance analysis with optimized parameters**
-   ```bash
-   python scripts/performance_analyzer.py \
-     --input data/outputs/all_stocks_indicators.csv \
-     --output logs/optimized_performance \
-     --use-stock-configs \
-     --max-investment 5000 \
-     --initial-capital 10000
-   ```
-
-### Alternative Workflow (Traditional Approach)
-
-If you prefer the traditional approach with consolidated files:
-
-1. **Fetch OHLC data for all stocks**
-   ```bash
-   python scripts/data_fetcher.py
-   ```
-
-2. **Calculate indicators with default parameters**
-   ```bash
-   python scripts/technical_analysis.py --all --output data/outputs/all_stocks_indicators.csv
-   ```
-
-3. **Run stock-specific grid search to find optimal parameters**
-   ```bash
-   python scripts/stock_grid_search.py --input data/outputs/all_stocks_indicators.csv --output logs/stock_grid_search --max-combinations 10000
-   ```
-
-4. **Calculate indicators with optimized parameters**
-   ```bash
-   python scripts/technical_analysis.py --all --output data/outputs/all_stocks_optimized_indicators.csv
-   ```
-
-5. **Run performance analysis with optimized parameters**
-   ```bash
-   python scripts/performance_analyzer.py --input data/outputs/all_stocks_optimized_indicators.csv --output logs/optimized_performance --use-stock-configs --max-investment 5000 --initial-capital 10000
-   ```
-
-## WhatsApp Notifications
-
-The system sends WhatsApp notifications for:
-
-1. **Trading Signals**: When a new buy signal is detected
-2. **End-of-Day Summary**: Daily summary of all trading recommendations
-
-To configure WhatsApp notifications:
-1. Create a Twilio account and activate the WhatsApp Sandbox
-2. Add the credentials to your `.env` file
-3. Enable notifications with the `--notifications` flag (enabled by default in crontab)
-
-See `WHATSAPP_NOTIFICATIONS.md` for detailed setup instructions.
-
-## Performance Metrics Explained
-
-- **CAGR**: Compound Annual Growth Rate - the mean annual growth rate over the investment period
-- **Sharpe Ratio**: Risk-adjusted return - higher is better, values above 1 are good
-- **Win Rate**: Percentage of trades that were profitable
-- **Maximum Drawdown**: Largest peak-to-trough decline in portfolio value
-- **Capital Utilization**: Average percentage of capital deployed in trades
-- **Maximum Concurrent Trades**: Highest number of open trades at one time
-
-## Performance Results
-
-Our stock-specific optimization approach has yielded exceptional results:
-
-- **Total Trades**: 148 trades across 50 stocks
-- **Win Rate**: 86.49% (significantly above industry average)
-- **CAGR**: 47.46% (exceptional annual growth rate)
-- **Sharpe Ratio**: 0.40
-- **Maximum Drawdown**: Only 3.47% (extremely low risk)
-- **Return on Initial Capital**: 509.59% (₹10,000 → ₹60,959)
-
-Top performing stocks include:
-- COALINDIA: 16 trades, 75% win rate, ₹4,832 profit
-- SHRIRAMFIN: 8 trades, 87.5% win rate, ₹3,906 profit
-- ADANIENT: 3 trades, 66.67% win rate, ₹3,792 profit
-- TATACONSUM: 13 trades, 76.92% win rate, ₹2,822 profit
-
-Stock-specific optimization demonstrates dramatically improved performance compared to using a single configuration for all stocks.
-
-## Data Structure
-
-### Input Data (OHLC)
-- timestamp: Datetime index
-- open: Opening price
-- high: High price
-- low: Low price
-- close: Closing price
-- volume: Trading volume
-
-### Generated Indicators
-- macd_line: MACD line
-- macd_signal: MACD signal line
-- macd_hist: MACD histogram
-- support_XX: Support level (XX = period)
-- resistance_XX: Resistance level (XX = period)
-- atr: Average True Range
-- atr_threshold: ATR relative to price
-- ema_XX: Exponential Moving Average (XX = period)
-- bb_lower: Bollinger Bands lower band
-- bb_middle: Bollinger Bands middle band
-- bb_upper: Bollinger Bands upper band
-- rsi: Relative Strength Index
-- signal_combined: Combined signal (1 = buy, -1 = sell, 0 = hold)
-- stop_loss: Calculated stop loss price
-- take_profit: Calculated take profit price
-
-## Error Handling
-
-- Comprehensive logging in the `logs/` directory
-- Automatic fallback to default configuration when stock-specific configs are missing
-- Data integrity verification
-- Robust date handling for performance calculations
-- Exception handling to continue processing despite individual stock failures
-
-## Copyright Notice
-
-© 2024 DataBull. All rights reserved.
-
-This is proprietary software. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited.
+   See `

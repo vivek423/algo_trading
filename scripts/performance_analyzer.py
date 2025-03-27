@@ -49,6 +49,8 @@ class PerformanceAnalyzer:
         self.max_investment = max_investment_per_trade
         self.trades: List[Trade] = []
         self.active_trades: Dict[str, Trade] = {}  # symbol -> Trade
+        self.cash_balance: float = 0  # Track available cash
+        self.initial_capital: float = 0  # Store initial capital
         
     def calculate_quantity(self, price: float) -> int:
         """Calculate quantity of shares to buy based on price and max investment"""
@@ -57,13 +59,20 @@ class PerformanceAnalyzer:
         elif price >= 15000:
             return 0
         else:
-            return int(min(self.max_investment // price, self.max_investment / price))
+            # Limit by both max investment and available cash
+            max_quantity_by_investment = int(min(self.max_investment // price, self.max_investment / price))
+            max_quantity_by_cash = int(self.cash_balance / price)
+            return min(max_quantity_by_investment, max_quantity_by_cash)
             
-    def process_signals(self, df: pd.DataFrame) -> List[Trade]:
+    def process_signals(self, df: pd.DataFrame, initial_capital: float = 10000) -> List[Trade]:
         """Process signals and generate trades"""
-        # Reset trades list
+        # Reset trades list and initialize cash
         self.trades = []
         self.active_trades = {}
+        self.cash_balance = initial_capital
+        self.initial_capital = initial_capital
+        
+        logger.info(f"Starting with initial capital: ₹{initial_capital:,.2f}")
         
         # Make sure we have a timestamp index
         if not isinstance(df.index, pd.DatetimeIndex):
@@ -84,78 +93,88 @@ class PerformanceAnalyzer:
         df = df.sort_index()
         logger.debug(f"Processing signals for dataframe with shape {df.shape}")
         
-        # Group by symbol to process each stock separately
-        for symbol, stock_data in df.groupby('symbol'):
-            logger.debug(f"Processing signals for {symbol} with {len(stock_data)} data points")
-            self._process_stock_signals(symbol, stock_data)
+        # Process all data chronologically rather than by symbol to properly track cash
+        # First, create a unified dataframe with proper datetime index
+        df = df.reset_index()
+        if 'timestamp' not in df.columns:
+            df['timestamp'] = df.index
+        
+        # Sort by date chronologically
+        df = df.sort_values('timestamp')
+        
+        # Process each day's data
+        for date, day_data in df.groupby('timestamp'):
+            logger.debug(f"Processing data for {date}, cash balance: ₹{self.cash_balance:,.2f}")
+            
+            # First check for closing trades (stop loss or take profit)
+            for symbol, trade in list(self.active_trades.items()):
+                # Find this stock's data for the current day, if it exists
+                stock_data = day_data[day_data['symbol'] == symbol]
+                if not stock_data.empty:
+                    row = stock_data.iloc[0]
+                    
+                    # Check stop loss
+                    if row['low'] <= trade.stop_loss:
+                        self._close_trade(trade, pd.Timestamp(date), trade.stop_loss, 'stop_loss')
+                        continue
+                        
+                    # Check take profit
+                    if row['high'] >= trade.take_profit:
+                        self._close_trade(trade, pd.Timestamp(date), trade.take_profit, 'take_profit')
+                        continue
+            
+            # Then check for new entry signals
+            for _, row in day_data.iterrows():
+                symbol = row['symbol']
+                
+                if row['signal_combined'] == 1 and symbol not in self.active_trades:
+                    # Check if we have data for the next day
+                    next_day_data = df[(df['timestamp'] > date) & (df['symbol'] == symbol)]
+                    if len(next_day_data) > 0:
+                        entry_price = next_day_data.iloc[0]['open']
+                        entry_date = pd.Timestamp(next_day_data.iloc[0]['timestamp'])
+                        
+                        # Calculate quantity based on available cash
+                        quantity = self.calculate_quantity(entry_price)
+                        trade_cost = entry_price * quantity
+                        
+                        # Check if we have enough cash and quantity > 0
+                        if quantity > 0 and self.cash_balance >= trade_cost:
+                            # Create new trade
+                            trade = Trade(
+                                symbol=symbol,
+                                entry_date=entry_date,
+                                entry_price=entry_price,
+                                quantity=quantity,
+                                stop_loss=row['stop_loss'],
+                                take_profit=row['take_profit']
+                            )
+                            
+                            # Update cash balance
+                            self.cash_balance -= trade_cost
+                            
+                            # Record the trade
+                            self.active_trades[symbol] = trade
+                            self.trades.append(trade)
+                            
+                            logger.debug(f"New trade: {symbol}, Entry date: {entry_date}, Entry price: {entry_price}, Quantity: {quantity}, Cost: ₹{trade_cost:,.2f}, Remaining cash: ₹{self.cash_balance:,.2f}")
+                        else:
+                            logger.debug(f"Skipped trade for {symbol} at {entry_date}: Insufficient cash (₹{self.cash_balance:,.2f}) for trade cost (₹{trade_cost:,.2f}) or quantity ({quantity}) too low")
             
         # Close any remaining active trades with the last available price
         for symbol, trade in list(self.active_trades.items()):
             if symbol in df['symbol'].values:
                 last_data = df[df['symbol'] == symbol].iloc[-1]
-                last_date = pd.Timestamp(last_data.name)
+                last_date = pd.Timestamp(last_data['timestamp'])
                 logger.debug(f"Closing remaining {symbol} trade at {last_date} with price {last_data['close']}")
                 self._close_trade(trade, last_date, last_data['close'], 'end_of_period')
             else:
                 logger.warning(f"Symbol {symbol} not found in dataframe, using current time for exit")
                 self._close_trade(trade, pd.Timestamp.now(), trade.entry_price, 'end_of_period')
             
-        logger.debug(f"Generated {len(self.trades)} trades")
+        logger.info(f"Generated {len(self.trades)} trades, final cash balance: ₹{self.cash_balance:,.2f}")
         return self.trades
         
-    def _process_stock_signals(self, symbol: str, stock_data: pd.DataFrame):
-        """Process signals for a single stock"""
-        for date, row in stock_data.iterrows():
-            # First check if we need to close any active trade
-            if symbol in self.active_trades:
-                trade = self.active_trades[symbol]
-                
-                # Check stop loss
-                if row['low'] <= trade.stop_loss:
-                    self._close_trade(trade, pd.Timestamp(date), trade.stop_loss, 'stop_loss')
-                    continue
-                    
-                # Check take profit
-                if row['high'] >= trade.take_profit:
-                    self._close_trade(trade, pd.Timestamp(date), trade.take_profit, 'take_profit')
-                    continue
-            
-            # Then check for new entry signals
-            if row['signal_combined'] == 1 and symbol not in self.active_trades:
-                # Get next day's opening price if available
-                next_day_data = stock_data[stock_data.index > date]
-                if len(next_day_data) > 0:
-                    entry_price = next_day_data.iloc[0]['open']
-                    
-                    # Ensure the date is a proper pandas Timestamp
-                    if isinstance(date, pd.Timestamp):
-                        entry_date = pd.Timestamp(next_day_data.index[0])
-                    else:
-                        logger.warning(f"Date {date} is not a Timestamp, converting from {type(date)}")
-                        try:
-                            # Try to convert the index to proper timestamp
-                            entry_date = pd.Timestamp(next_day_data.index[0])
-                        except:
-                            logger.error(f"Failed to convert date: {next_day_data.index[0]}")
-                            continue
-                    
-                    # Calculate quantity
-                    quantity = self.calculate_quantity(entry_price)
-                    
-                    if quantity > 0:
-                        # Create new trade
-                        trade = Trade(
-                            symbol=symbol,
-                            entry_date=entry_date,
-                            entry_price=entry_price,
-                            quantity=quantity,
-                            stop_loss=row['stop_loss'],
-                            take_profit=row['take_profit']
-                        )
-                        self.active_trades[symbol] = trade
-                        self.trades.append(trade)
-                        logger.debug(f"New trade: {symbol}, Entry date: {entry_date}, Entry price: {entry_price}")
-                        
     def _close_trade(self, trade: Trade, exit_date: pd.Timestamp, exit_price: float, reason: str):
         """Close a trade and calculate P&L"""
         # Ensure exit_date is a proper Timestamp
@@ -171,8 +190,12 @@ class PerformanceAnalyzer:
         trade.exit_reason = reason
         trade.pnl = (exit_price - trade.entry_price) * trade.quantity
         
+        # Update cash balance when closing the trade
+        proceeds = exit_price * trade.quantity
+        self.cash_balance += proceeds
+        
         # Log trade closure for debugging
-        logger.debug(f"Closed trade: {trade.symbol}, Entry: {trade.entry_date}, Exit: {exit_date}, PnL: {trade.pnl}")
+        logger.debug(f"Closed trade: {trade.symbol}, Entry: {trade.entry_date}, Exit: {exit_date}, PnL: {trade.pnl:,.2f}, Proceeds: ₹{proceeds:,.2f}, New cash balance: ₹{self.cash_balance:,.2f}")
         
         # Remove from active trades
         if trade.symbol in self.active_trades:
@@ -180,6 +203,10 @@ class PerformanceAnalyzer:
             
     def calculate_performance_metrics(self, trades: List[Trade], initial_capital: float = 10000, years: Optional[List[int]] = None) -> Dict:
         """Calculate performance metrics for the specified years with realistic capital management"""
+        # Store the initial capital
+        self.initial_capital = initial_capital
+        
+        # Filter trades by year if specified
         if years:
             trades = [t for t in trades if t.entry_date.year in years]
             
@@ -217,9 +244,9 @@ class PerformanceAnalyzer:
         logger.debug(f"Basic metrics: total={total_trades}, winning={winning_trades}, losing={losing_trades}, completed={len(completed_trades)}")
         
         # Calculate realistic capital usage with cash balance tracking
-        cash_balance = initial_capital
+        # Reset cash for metrics calculation
+        self.cash_balance = initial_capital
         max_capital_used = initial_capital
-        additional_capital_needed = 0
         total_additional_capital = 0
         capital_utilization = []  # Track % of capital deployed over time
         concurrent_trades = {}    # Track open trades by date
@@ -231,12 +258,12 @@ class PerformanceAnalyzer:
             trade_cost = trade.entry_price * trade.quantity
             
             # Check if we need additional capital
-            if trade_cost > cash_balance:
-                additional_capital = trade_cost - cash_balance
+            if trade_cost > self.cash_balance:
+                additional_capital = trade_cost - self.cash_balance
                 total_additional_capital += additional_capital
-                cash_balance = 0  # We used all available cash
+                self.cash_balance = 0  # We used all available cash
             else:
-                cash_balance -= trade_cost  # Just use available cash
+                self.cash_balance -= trade_cost  # Just use available cash
             
             # Track trade in concurrent trades dictionary
             entry_date_str = trade.entry_date.strftime('%Y-%m-%d')
@@ -248,7 +275,7 @@ class PerformanceAnalyzer:
             if trade.exit_date and trade.exit_price:
                 exit_date_str = trade.exit_date.strftime('%Y-%m-%d')
                 sale_proceeds = trade.exit_price * trade.quantity
-                cash_balance += sale_proceeds
+                self.cash_balance += sale_proceeds
                 
                 # Update concurrent trades on exit
                 if exit_date_str not in concurrent_trades:
@@ -256,7 +283,7 @@ class PerformanceAnalyzer:
                 concurrent_trades[exit_date_str] -= 1
             
             # Track capital utilization for this day
-            current_capital_used = initial_capital + total_additional_capital - cash_balance
+            current_capital_used = initial_capital + total_additional_capital - self.cash_balance
             capital_utilization.append(current_capital_used / (initial_capital + total_additional_capital))
             
             # Track maximum capital used
@@ -502,152 +529,73 @@ def load_stock_configs(trading_config_path: str) -> Dict[str, str]:
         return {}
 
 def main():
+    """Run performance analysis"""
     parser = argparse.ArgumentParser(description='Analyze trading performance')
-    parser.add_argument('--input', '-i', required=True, help='Path to input CSV file with technical indicators')
-    parser.add_argument('--output', '-o', required=True, help='Path to output directory for reports')
-    parser.add_argument('--years', '-y', nargs='+', type=int, help='List of years to analyze')
-    parser.add_argument('--max-investment', '-m', type=float, default=5000, help='Maximum investment per trade')
-    parser.add_argument('--initial-capital', '-c', type=float, default=10000, help='Initial capital for portfolio')
-    parser.add_argument('--trading-config', '-t', default='config/trading_config.yaml', help='Path to trading configuration')
-    parser.add_argument('--use-stock-configs', '-s', action='store_true', help='Use stock-specific configurations')
+    parser.add_argument('--input', type=str, required=True, help='Input file with technical indicators')
+    parser.add_argument('--initial-capital', type=float, default=10000, help='Initial capital for trading')
+    parser.add_argument('--max-investment', type=float, default=5000, help='Maximum investment per trade')
+    parser.add_argument('--use-stock-configs', action='store_true', help='Use stock-specific configurations')
+    parser.add_argument('--metric', choices=['sharpe_ratio', 'cagr', 'win_rate', 'total_pnl'], 
+                        default='sharpe_ratio', help='Performance metric to optimize')
     
     args = parser.parse_args()
     
+    # Hardcoded output directory
+    output_dir = 'data/outputs/performance'
+    os.makedirs(output_dir, exist_ok=True)
+    
     try:
-        # Load data
-        df = pd.read_csv(args.input, parse_dates=['timestamp'], index_col='timestamp')
+        # Load the CSV with technical indicators
+        logger.info(f"Loading data from {args.input}")
+        df = pd.read_csv(args.input)
         
-        # Load stock-specific configurations if enabled
-        stock_configs = {}
-        if args.use_stock_configs:
-            stock_configs = load_stock_configs(args.trading_config)
-            
-        # Process by stock, with stock-specific configs if available
-        all_trades = []
+        logger.info(f"Loaded data with shape {df.shape}")
+        unique_symbols = df['symbol'].unique()
+        logger.info(f"Found {len(unique_symbols)} symbols in the dataset")
         
-        # Group by symbol and process each stock separately
-        for symbol, stock_data in df.groupby('symbol'):
-            logger.info(f"Processing {symbol} with {len(stock_data)} data points")
-            
-            # Use stock-specific config if available
-            config_path = stock_configs.get(symbol) if args.use_stock_configs else None
-            
-            # If a stock-specific config is available, use it to recalculate indicators
-            if config_path and os.path.exists(config_path):
-                logger.info(f"Using stock-specific configuration for {symbol}: {config_path}")
-                
-                # Initialize technical analysis with stock config
-                ta = TechnicalAnalysis(config_path=config_path)
-                
-                # Recalculate indicators using stock-specific parameters
-                stock_data = ta.calculate_all_indicators(stock_data)
-            
-            # Initialize performance analyzer for this stock
-            analyzer = PerformanceAnalyzer(max_investment_per_trade=args.max_investment)
-            
-            # Process signals and generate trades
-            stock_trades = analyzer.process_signals(stock_data)
-            all_trades.extend(stock_trades)
-            
-            logger.info(f"Generated {len(stock_trades)} trades for {symbol}")
-        
-        logger.info(f"Total trades across all stocks: {len(all_trades)}")
-        
-        # Calculate overall performance metrics
+        # Initialize performance analyzer
         analyzer = PerformanceAnalyzer(max_investment_per_trade=args.max_investment)
-        overall_metrics = analyzer.calculate_performance_metrics(all_trades, initial_capital=args.initial_capital, years=args.years)
+        logger.info(f"Starting with initial capital: ₹{args.initial_capital:,.2f}")
         
-        # Generate yearly summary
-        yearly_summary = analyzer.generate_yearly_summary(all_trades, initial_capital=args.initial_capital)
+        # Process signals to generate trades
+        trades = analyzer.process_signals(df, initial_capital=args.initial_capital)
         
-        # Save reports
-        os.makedirs(args.output, exist_ok=True)
+        # Calculate performance metrics
+        metrics = analyzer.calculate_performance_metrics(trades, initial_capital=args.initial_capital)
+        logger.info(f"Total trades across all stocks: {len(trades)}")
         
-        # Save overall metrics
-        with open(os.path.join(args.output, 'overall_metrics.yaml'), 'w') as f:
-            yaml.dump(overall_metrics, f, default_flow_style=False)
-            
-        # Save yearly summary
-        yearly_summary.to_csv(os.path.join(args.output, 'yearly_summary.csv'))
-        
-        # Calculate capital allocation for each trade
-        # Sort trades chronologically
-        sorted_trades = sorted(all_trades, key=lambda t: t.entry_date)
-        cash_balance = args.initial_capital
-        additional_capital_needed = []
-        capital_after_trade = []
-        
-        # Process each trade to calculate its capital impact
-        for trade in sorted_trades:
-            trade_cost = trade.entry_price * trade.quantity
-            
-            # Check if we need additional capital
-            if trade_cost > cash_balance:
-                additional_capital = trade_cost - cash_balance
-                additional_capital_needed.append(additional_capital)
-                cash_balance = 0
-            else:
-                additional_capital_needed.append(0)
-                cash_balance -= trade_cost
-            
-            # Record cash balance after investment
-            capital_after_trade.append(cash_balance)
-            
-            # When the trade is closed, add proceeds back to cash
-            if trade.exit_price and trade.pnl is not None:
-                cash_balance += trade.exit_price * trade.quantity
-        
-        # Save detailed trade log with capital information
-        trade_log = pd.DataFrame([
-            {
-                'symbol': t.symbol,
-                'entry_date': t.entry_date,
-                'entry_price': t.entry_price,
-                'quantity': t.quantity,
-                'investment': t.entry_price * t.quantity,
-                'additional_capital_needed': add_capital,
-                'cash_after_entry': cash_bal,
-                'stop_loss': t.stop_loss,
-                'take_profit': t.take_profit,
-                'exit_date': t.exit_date,
-                'exit_price': t.exit_price,
-                'exit_reason': t.exit_reason,
-                'pnl': t.pnl,
-                'return_pct': (t.pnl / (t.entry_price * t.quantity) * 100) if t.pnl is not None else None
-            }
-            for t, add_capital, cash_bal in zip(sorted_trades, additional_capital_needed, capital_after_trade)
-        ])
-        trade_log.to_csv(os.path.join(args.output, 'trade_log.csv'), index=False)
-        
-        logger.info(f"Analysis complete. Reports saved to {args.output}")
-        
-        # Print summary
+        # Print the overall metrics summary
         print("\nOverall Performance Summary:")
-        print(f"Total Trades: {overall_metrics['total_trades']}")
-        print(f"Win Rate: {overall_metrics['win_rate']:.2f}%")
-        print(f"Initial Capital: ₹{overall_metrics['initial_capital']:,.2f}")
-        print(f"Max Capital Used: ₹{overall_metrics['max_capital_used']:,.2f}")
-        print(f"Additional Capital Required: ₹{overall_metrics['additional_capital_required']:,.2f}")
-        print(f"Final Capital: ₹{overall_metrics['final_capital']:,.2f}")
-        print(f"Realized P&L: ₹{overall_metrics['realized_pnl']:,.2f}")
-        print(f"CAGR: {overall_metrics['cagr']:.2f}%")
-        print(f"Sharpe Ratio: {overall_metrics['sharpe_ratio']:.2f}")
-        print(f"Maximum Drawdown: {overall_metrics['max_drawdown']:.2f}%")
-        print(f"Average Capital Utilization: {overall_metrics['avg_capital_utilization']:.2f}%")
-        print(f"Maximum Concurrent Trades: {overall_metrics['max_concurrent_trades']}")
+        for key, value in metrics.items():
+            if isinstance(value, float):
+                if key in ['cagr', 'win_rate', 'max_drawdown', 'avg_capital_utilization']:
+                    print(f"{key.replace('_', ' ').title()}: {value:.2f}%")
+                else:
+                    print(f"{key.replace('_', ' ').title()}: ₹{value:,.2f}")
+            else:
+                print(f"{key.replace('_', ' ').title()}: {value}")
         
-        # Print stock-specific performance if using stock configs
-        if args.use_stock_configs and len(stock_configs) > 0:
-            print("\nStock-Specific Performance:")
-            # Group trades by symbol
-            for symbol, trades in pd.DataFrame(sorted_trades).groupby('symbol'):
-                if len(trades) > 0:
-                    win_rate = len(trades[trades['pnl'] > 0]) / len(trades) * 100 if len(trades) > 0 else 0
-                    total_pnl = sum(trades['pnl'].dropna())
-                    print(f"{symbol}: {len(trades)} trades, Win Rate: {win_rate:.2f}%, P&L: ₹{total_pnl:,.2f}")
+        # Save the metrics to a YAML file
+        metrics_file = os.path.join(output_dir, 'overall_metrics.yaml')
+        with open(metrics_file, 'w') as f:
+            yaml.dump(metrics, f, default_flow_style=False)
+            
+        # Generate yearly summary
+        yearly_summary = analyzer.generate_yearly_summary(trades, initial_capital=args.initial_capital)
+        yearly_file = os.path.join(output_dir, 'yearly_summary.csv')
+        yearly_summary.to_csv(yearly_file, index=False)
+        
+        # Save trade log
+        trade_df = analyzer.create_trade_log(trades)
+        trade_log_file = os.path.join(output_dir, 'trade_log.csv')
+        trade_df.to_csv(trade_log_file, index=False)
+        
+        logger.info(f"Analysis complete. Reports saved to {output_dir}")
         
     except Exception as e:
         logger.error(f"Error in performance analysis: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise
 
 if __name__ == '__main__':

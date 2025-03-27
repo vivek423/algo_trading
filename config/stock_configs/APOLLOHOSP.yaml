@@ -13,7 +13,7 @@ support_resistance:
 
 # ATR Parameters
 atr:
-  window: 14
+  window: 10
 
 # EMA Parameters
 ema:
@@ -26,8 +26,8 @@ bollinger_bands:
 
 # RSI Parameters
 rsi:
-  length: 10
-  oversold: 30
+  length: 20
+  oversold: 35
   overbought: 65
 
 # Risk Management Parameters

@@ -21,12 +21,12 @@ ema:
 
 # Bollinger Bands Parameters
 bollinger_bands:
-  length: 30
-  std: 2.2
+  length: 20
+  std: 1.8
 
 # RSI Parameters
 rsi:
-  length: 10
+  length: 14
   oversold: 25
   overbought: 65
 

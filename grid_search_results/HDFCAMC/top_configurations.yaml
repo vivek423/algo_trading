@@ -1,0 +1,340 @@
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 3.7915942002084257
+  final_capital: 10475.574211058398
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 1.8
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 2.5
+    rsi:
+      length: 20
+      overbought: 65
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 475.5742110583974
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 4.391348440991538
+  final_capital: 10578.549053270077
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 1.8
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 3.0
+    rsi:
+      length: 20
+      overbought: 65
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 578.5490532700765
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 3.7915942002084257
+  final_capital: 10475.574211058398
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 1.8
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 2.5
+    rsi:
+      length: 20
+      overbought: 70
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 475.5742110583974
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 4.391348440991538
+  final_capital: 10578.549053270077
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 1.8
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 3.0
+    rsi:
+      length: 20
+      overbought: 70
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 578.5490532700765
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 3.7915942002084257
+  final_capital: 10475.574211058398
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 1.8
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 2.5
+    rsi:
+      length: 20
+      overbought: 75
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 475.5742110583974
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 4.391348440991538
+  final_capital: 10578.549053270077
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 1.8
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 3.0
+    rsi:
+      length: 20
+      overbought: 75
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 578.5490532700765
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 3.7915942002084257
+  final_capital: 10475.574211058398
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 2.0
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 2.5
+    rsi:
+      length: 20
+      overbought: 65
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 475.5742110583974
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 4.391348440991538
+  final_capital: 10578.549053270077
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 2.0
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 3.0
+    rsi:
+      length: 20
+      overbought: 65
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 578.5490532700765
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 3.7915942002084257
+  final_capital: 10475.574211058398
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 2.0
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 2.5
+    rsi:
+      length: 20
+      overbought: 70
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 475.5742110583974
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0
+- additional_capital_required: 0.0
+  avg_capital_utilization: 0.0
+  cagr: 4.391348440991538
+  final_capital: 10578.549053270077
+  initial_capital: 10000.0
+  max_capital_used: 10000.0
+  max_concurrent_trades: 1
+  max_drawdown: 0.0
+  parameters:
+    atr:
+      window: 10
+    bollinger_bands:
+      length: 20
+      std: 2.0
+    ema:
+      period: 15
+    macd:
+      fast_period: 8
+      signal_period: 7
+      slow_period: 21
+    risk_management:
+      stop_loss_atr_multiplier: 2.5
+      take_profit_atr_multiplier: 3.0
+    rsi:
+      length: 20
+      overbought: 70
+      oversold: 25
+    support_resistance:
+      resistance_period: 10
+      support_period: 10
+  realized_pnl: 578.5490532700765
+  sharpe_ratio: 10.0
+  total_trades: 2
+  win_rate: 100.0

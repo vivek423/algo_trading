@@ -11,4 +11,6 @@ asset_filters:
   segment: NSE
 interval: day
 months_of_history: 60
-stocks: []
+stocks:
+- config: /Users/vivek_kapoor/projects/algo_trading/config/stock_configs/ABBOTINDIA.yaml
+  symbol: ABBOTINDIA

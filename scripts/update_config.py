@@ -4,16 +4,10 @@ import os
 import argparse
 import logging
 import sys
+from setup_logging import setup_script_logging
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_script_logging()
 
 def update_config(results_file, config_file, metric='sharpe_ratio'):
     """
@@ -180,12 +174,11 @@ def main():
     if success:
         logger.info("Configuration updated successfully")
         
-        # Regenerate indicators file
-        indicators_file = 'data/outputs/all_stocks_indicators.csv'
-        logger.info(f"Regenerating indicators file: {indicators_file}")
+        # Regenerate indicators file using technical_analysis.py with its hardcoded output path
+        logger.info("Regenerating indicators file with updated configuration")
         
-        # Use the technical_analysis.py script to regenerate indicators
-        os.system(f"python scripts/technical_analysis.py --all --output {indicators_file}")
+        # Run the technical_analysis.py script with --all option (which now uses hardcoded output path)
+        os.system("python scripts/technical_analysis.py --all")
         
         logger.info("All done! You can now run performance analysis with the updated configuration.")
         return 0

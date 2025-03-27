@@ -6,13 +6,10 @@ import json
 from datetime import datetime, timedelta
 import logging
 from typing import Optional, Dict
+from setup_logging import setup_script_logging
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = setup_script_logging()
 
 class SessionManager:
     def __init__(self):
