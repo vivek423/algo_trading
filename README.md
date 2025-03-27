@@ -185,4 +185,86 @@ All scripts use these hardcoded paths - you no longer need to specify output dir
    # Edit crontab_config.txt to replace {{PROJECT_PATH}} with your actual path
    crontab crontab_config.txt
    ```
-   See `
+   See `CRONTAB_SETUP.md` for more details on configuring automated trading schedules.
+
+## Documentation
+
+Additional documentation is available in the following files:
+
+1. **Crontab Setup**: `CRONTAB_SETUP.md`
+2. **WhatsApp Notifications**: `WHATSAPP_NOTIFICATIONS.md`
+3. **Logs Management**: `logs/README.md`
+
+## Usage
+
+### Data Fetching
+
+```bash
+# Fetch data for all stocks in the configuration
+python scripts/data_fetcher.py
+
+# Fetch data for all stocks with a specific config file
+python scripts/data_fetcher.py --config config/trading_config.yaml
+```
+
+### Technical Analysis
+
+```bash
+# Run technical analysis on a single stock file
+python scripts/technical_analysis.py --input data/inputs/ADANIENT_day.csv
+
+# Run technical analysis on all stocks using stock-specific configs where available
+python scripts/technical_analysis.py --all
+
+# Run technical analysis with a specific configuration file
+python scripts/technical_analysis.py --input data/inputs/ADANIENT_day.csv --config config/technical_indicators.yaml
+```
+
+### Performance Analysis
+
+```bash
+# Run performance analysis with default settings
+python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv
+
+# Run performance analysis with specific capital and investment amounts
+python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --initial-capital 1000000 --max-investment 5000
+
+# Run performance analysis using stock-specific configurations
+python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --use-stock-configs
+
+# Optimize for a specific metric
+python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --metric sharpe_ratio
+```
+
+### Global Grid Search
+
+```bash
+# Run grid search to find optimal parameters for all stocks
+python scripts/grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv
+
+# Run grid search with specific capital settings
+python scripts/grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv --initial-capital 1000000 --max-investment 5000
+
+# Limit the search to a subset of combinations
+python scripts/grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv --max-combinations 1000
+```
+
+### Stock-Specific Grid Search
+
+```bash
+# Run grid search for specific stocks
+python scripts/stock_grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv --stocks ADANIENT RELIANCE HDFC
+
+# Use stock configuration from a trading config file
+python scripts/stock_grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv --trading-config config/trading_config.yaml
+```
+
+### Update Configuration with Optimal Parameters
+
+```bash
+# Update the global configuration file with the best parameters from grid search
+python scripts/update_config.py --results data/outputs/grid_search/top_configurations.yaml --config config/technical_indicators.yaml
+
+# Choose a specific metric for optimization
+python scripts/update_config.py --results data/outputs/grid_search/top_configurations.yaml --config config/technical_indicators.yaml --metric win_rate
+```
