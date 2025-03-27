@@ -502,7 +502,8 @@ class GridSearchOptimizer:
 def main():
     """Main function to run grid search for parameter optimization"""
     parser = argparse.ArgumentParser(description='Grid search for stock trading parameters')
-    parser.add_argument('--input', required=True, help='Input CSV file with technical indicators')
+    parser.add_argument('--input', type=str, help='Input CSV file with technical indicators')
+    parser.add_argument('--input-dir', type=str, help='Directory containing individual stock OHLCV data files')
     parser.add_argument('--max-investment', type=float, default=5000, help='Maximum investment per trade')
     parser.add_argument('--initial-capital', type=float, default=10000, help='Initial capital')
     parser.add_argument('--metric', choices=['sharpe_ratio', 'cagr', 'win_rate', 'total_pnl'], 
@@ -512,37 +513,126 @@ def main():
                        help='Maximum number of parameter combinations to test')
     parser.add_argument('--max-processes', type=int, default=None, 
                        help='Maximum number of CPU processes to use (default: use all available)')
+    parser.add_argument('--stocks', type=str, nargs='+', help='Specific stock symbols to process')
+    parser.add_argument('--trading-config', type=str, help='Path to trading configuration file to get list of stocks')
     
     args = parser.parse_args()
+    
+    # Validate arguments
+    if not args.input and not args.input_dir:
+        logger.error("Either --input or --input-dir must be specified")
+        return
     
     # Hardcoded output directory
     output_dir = 'data/outputs/grid_search'
     os.makedirs(output_dir, exist_ok=True)
     
     try:
-        # Load the input data
-        logger.info(f"Loading input data from {args.input}")
-        df = pd.read_csv(args.input)
-        
-        # Check for required columns
-        required_columns = ['symbol', 'timestamp', 'open', 'high', 'low', 'close', 'volume']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            logger.error(f"Missing required columns in input data: {missing_columns}")
-            return
+        # Determine which method to use
+        if args.input:
+            # Load from consolidated file
+            logger.info(f"Loading input data from {args.input}")
+            df = pd.read_csv(args.input)
             
-        # Convert timestamp to datetime
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
+            # Check for required columns
+            required_columns = ['symbol', 'timestamp', 'open', 'high', 'low', 'close', 'volume']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                logger.error(f"Missing required columns in input data: {missing_columns}")
+                return
+                
+            # Convert timestamp to datetime
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            # Get the list of stocks
+            all_stocks = df['symbol'].unique()
+            
+        else:  # Using input_dir
+            logger.info(f"Using individual stock files from {args.input_dir}")
+            
+            # Get list of stock files
+            file_pattern = os.path.join(args.input_dir, "*_day.csv")  # Assuming daily data
+            stock_files = glob.glob(file_pattern)
+            
+            # If no files found with *_day.csv, try a broader pattern
+            if not stock_files:
+                file_pattern = os.path.join(args.input_dir, "*.csv")
+                stock_files = glob.glob(file_pattern)
+            
+            if not stock_files:
+                logger.error(f"No stock files found in {args.input_dir}")
+                return
+            
+            # Extract stock symbols from filenames
+            all_stocks = [os.path.basename(f).split('_')[0] for f in stock_files]
+            logger.info(f"Found {len(stock_files)} stock files")
+            
+            # Initialize empty DataFrame for combined data
+            df = pd.DataFrame()
+            
+            # Load data from each file
+            for stock_file in stock_files:
+                symbol = os.path.basename(stock_file).split('_')[0]
+                try:
+                    stock_df = pd.read_csv(stock_file)
+                    
+                    # Add symbol column if not present
+                    if 'symbol' not in stock_df.columns:
+                        stock_df['symbol'] = symbol
+                    
+                    # Append to combined DataFrame
+                    df = pd.concat([df, stock_df], ignore_index=True)
+                except Exception as e:
+                    logger.error(f"Error loading {stock_file}: {str(e)}")
+            
+            # Check if we have data
+            if df.empty:
+                logger.error("No data loaded from stock files")
+                return
+            
+            # Convert timestamp to datetime
+            if 'timestamp' in df.columns:
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+            else:
+                logger.error("Missing 'timestamp' column in data")
+                return
         
-        # Get the list of stocks
-        stocks = df['symbol'].unique()
-        num_stocks = len(stocks)
-        logger.info(f"Found {num_stocks} stocks in the input data")
+        # Filter stocks if specific stocks were provided
+        if args.stocks:
+            logger.info(f"Filtering to specified stocks: {args.stocks}")
+            stocks = [s for s in all_stocks if s in args.stocks]
+        # If trading config was provided, load stocks from there
+        elif args.trading_config:
+            logger.info(f"Loading stocks from trading config: {args.trading_config}")
+            with open(args.trading_config, 'r') as f:
+                config = yaml.safe_load(f)
+            config_stocks = []
+            if isinstance(config.get('stocks'), list):
+                # Handle both formats (list of strings or list of dicts)
+                for stock in config['stocks']:
+                    if isinstance(stock, dict):
+                        if 'symbol' in stock:
+                            config_stocks.append(stock['symbol'])
+                    else:
+                        config_stocks.append(stock)
+            stocks = [s for s in all_stocks if s in config_stocks]
+        else:
+            stocks = all_stocks
         
         # Apply limit if specified
+        num_stocks = len(stocks)
+        logger.info(f"Found {num_stocks} stocks to process")
+        
         if args.limit and args.limit < num_stocks:
             logger.info(f"Limiting to {args.limit} stocks")
             stocks = stocks[:args.limit]
+        
+        # Filter data to only include selected stocks
+        df = df[df['symbol'].isin(stocks)]
+        
+        if df.empty:
+            logger.error("No data found for selected stocks")
+            return
         
         # Generate parameter grid
         param_grid, parameter_info = generate_parameter_grid()

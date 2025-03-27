@@ -54,9 +54,7 @@ class PerformanceAnalyzer:
         
     def calculate_quantity(self, price: float) -> int:
         """Calculate quantity of shares to buy based on price and max investment"""
-        if price > 5000 and price < 15000:
-            return 1
-        elif price >= 15000:
+        if price <= 0:
             return 0
         else:
             # Limit by both max investment and available cash
@@ -491,15 +489,109 @@ class PerformanceAnalyzer:
         }
         
     def generate_yearly_summary(self, trades: List[Trade], initial_capital: float = 10000) -> pd.DataFrame:
-        """Generate yearly summary of performance"""
-        yearly_metrics = {}
-        
-        for year in sorted(set(t.entry_date.year for t in trades)):
-            metrics = self.calculate_performance_metrics(trades, initial_capital=initial_capital, years=[year])
-            yearly_metrics[year] = metrics
+        """Generate yearly performance summary."""
+        if not trades:
+            return pd.DataFrame(columns=[
+                'year', 'total_trades', 'win_rate', 'realized_pnl', 'cagr',
+                'sharpe_ratio', 'max_drawdown', 'avg_trade_duration'
+            ])
             
-        return pd.DataFrame.from_dict(yearly_metrics, orient='index')
+        # Group trades by entry year
+        yearly_trades = {}
+        for trade in trades:
+            year = trade.entry_date.year
+            if year not in yearly_trades:
+                yearly_trades[year] = []
+            yearly_trades[year].append(trade)
         
+        # Generate summary for each year
+        yearly_summary = []
+        for year, year_trades in yearly_trades.items():
+            metrics = self.calculate_performance_metrics(year_trades, initial_capital)
+            yearly_summary.append({
+                'year': year,
+                'total_trades': metrics['total_trades'],
+                'win_rate': metrics['win_rate'],
+                'realized_pnl': metrics['realized_pnl'],
+                'cagr': metrics['cagr'],
+                'sharpe_ratio': metrics['sharpe_ratio'],
+                'max_drawdown': metrics['max_drawdown'],
+                'avg_trade_duration': metrics['avg_trade_duration']
+            })
+        
+        # Sort by year
+        return pd.DataFrame(yearly_summary).sort_values('year')
+        
+    def create_trade_log(self, trades: List[Trade]) -> pd.DataFrame:
+        """Create a DataFrame with detailed trade log information.
+        
+        Args:
+            trades: List of Trade objects
+            
+        Returns:
+            pd.DataFrame: DataFrame with trade details
+        """
+        if not trades:
+            return pd.DataFrame(columns=[
+                'symbol', 'entry_date', 'entry_price', 'quantity', 'investment',
+                'stop_loss', 'take_profit', 'exit_date', 'exit_price', 'exit_reason',
+                'pnl', 'return_pct', 'duration_days', 'available_cash'
+            ])
+        
+        # Sort trades chronologically by entry date
+        sorted_trades = sorted(trades, key=lambda t: t.entry_date)
+        
+        # Convert trades to dictionary records
+        trade_records = []
+        
+        # Reset cash balance for tracking in trade log
+        cash_balance = self.initial_capital
+        
+        for trade in sorted_trades:
+            # Calculate basic metrics
+            investment = trade.entry_price * trade.quantity
+            
+            # Update cash balance for this trade entry
+            cash_balance -= investment
+            available_cash_after_entry = cash_balance
+            
+            # Calculate return percentage
+            return_pct = 0
+            if trade.pnl is not None and investment > 0:
+                return_pct = (trade.pnl / investment) * 100
+            
+            # Calculate duration in days
+            duration_days = 0
+            if trade.exit_date is not None:
+                duration_days = (trade.exit_date - trade.entry_date).days
+            
+            # Calculate cash after exit (if trade is closed)
+            if trade.exit_date is not None and trade.exit_price is not None:
+                proceeds = trade.exit_price * trade.quantity
+                cash_balance += proceeds
+            
+            # Create record
+            trade_record = {
+                'symbol': trade.symbol,
+                'entry_date': trade.entry_date,
+                'entry_price': trade.entry_price,
+                'quantity': trade.quantity,
+                'investment': investment,
+                'stop_loss': trade.stop_loss,
+                'take_profit': trade.take_profit,
+                'exit_date': trade.exit_date,
+                'exit_price': trade.exit_price,
+                'exit_reason': trade.exit_reason,
+                'pnl': trade.pnl,
+                'return_pct': return_pct,
+                'duration_days': duration_days,
+                'available_cash': available_cash_after_entry
+            }
+            
+            trade_records.append(trade_record)
+        
+        return pd.DataFrame(trade_records)
+
 def load_stock_configs(trading_config_path: str) -> Dict[str, str]:
     """
     Load stock-specific configuration paths from trading config.

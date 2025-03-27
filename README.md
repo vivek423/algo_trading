@@ -239,14 +239,23 @@ python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYM
 ### Global Grid Search
 
 ```bash
-# Run grid search to find optimal parameters for all stocks
+# Run grid search with a consolidated indicators file
 python scripts/grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv
 
+# Run grid search using individual stock OHLCV files
+python scripts/grid_search.py --input-dir data/inputs
+
+# Run grid search for specific stocks only
+python scripts/grid_search.py --input-dir data/inputs --stocks ADANIENT RELIANCE HDFC
+
+# Use stock list from trading config
+python scripts/grid_search.py --input-dir data/inputs --trading-config config/trading_config.yaml
+
 # Run grid search with specific capital settings
-python scripts/grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv --initial-capital 1000000 --max-investment 5000
+python scripts/grid_search.py --input-dir data/inputs --initial-capital 1000000 --max-investment 5000
 
 # Limit the search to a subset of combinations
-python scripts/grid_search.py --input data/outputs/all_indicators_YYYYMMDD.csv --max-combinations 1000
+python scripts/grid_search.py --input-dir data/inputs --max-combinations 1000
 ```
 
 ### Stock-Specific Grid Search
