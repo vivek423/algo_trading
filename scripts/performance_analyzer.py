@@ -39,28 +39,33 @@ class Trade:
     pnl: Optional[float] = None
 
 class PerformanceAnalyzer:
-    def __init__(self, max_investment_per_trade: float = 5000):
+    def __init__(self, max_investment: float = 5000, position_size_pct: float = 15.0):
         """
-        Initialize Performance Analyzer
+        Initialize PerformanceAnalyzer with maximum investment amount.
         
         Args:
-            max_investment_per_trade: Maximum amount to invest per trade
+            max_investment: Maximum investment per trade (used as hard cap)
+            position_size_pct: Maximum percentage of available capital to use per trade (default: 15%)
         """
-        self.max_investment = max_investment_per_trade
+        self.max_investment = max_investment
+        self.position_size_pct = min(position_size_pct, 100.0)  # Cap at 100%
+        self.cash_balance = 0
+        self.initial_capital = 0
         self.trades: List[Trade] = []
         self.active_trades: Dict[str, Trade] = {}  # symbol -> Trade
-        self.cash_balance: float = 0  # Track available cash
-        self.initial_capital: float = 0  # Store initial capital
         
     def calculate_quantity(self, price: float) -> int:
-        """Calculate quantity of shares to buy based on price and max investment"""
+        """Calculate quantity of shares to buy based on price, max investment, and position sizing"""
         if price <= 0:
             return 0
         else:
-            # Limit by both max investment and available cash
-            max_quantity_by_investment = int(min(self.max_investment // price, self.max_investment / price))
-            max_quantity_by_cash = int(self.cash_balance / price)
-            return min(max_quantity_by_investment, max_quantity_by_cash)
+            # Calculate position size both as percentage of available capital and absolute max
+            position_size_by_pct = self.cash_balance * (self.position_size_pct / 100.0)
+            max_position_size = min(position_size_by_pct, self.max_investment)
+            
+            # Calculate quantity based on the smaller of the two constraints
+            max_quantity = int(max_position_size / price)
+            return max_quantity
             
     def process_signals(self, df: pd.DataFrame, initial_capital: float = 10000) -> List[Trade]:
         """Process signals and generate trades"""
@@ -625,49 +630,73 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze trading performance')
     parser.add_argument('--input', type=str, required=True, help='Input file with technical indicators')
     parser.add_argument('--initial-capital', type=float, default=10000, help='Initial capital for trading')
-    parser.add_argument('--max-investment', type=float, default=5000, help='Maximum investment per trade')
+    parser.add_argument('--max-investment', type=float, default=5000, help='Maximum investment per trade (absolute cap)')
+    parser.add_argument('--position-size-pct', type=float, default=15.0, 
+                        help='Maximum percentage of available capital to use per trade (default: 15%%)')
     parser.add_argument('--use-stock-configs', action='store_true', help='Use stock-specific configurations')
     parser.add_argument('--metric', choices=['sharpe_ratio', 'cagr', 'win_rate', 'total_pnl'], 
                         default='sharpe_ratio', help='Performance metric to optimize')
+    parser.add_argument('--output', type=str, help='Output directory for results (default: data/outputs/performance)')
     
     args = parser.parse_args()
     
     # Hardcoded output directory
-    output_dir = 'data/outputs/performance'
+    output_dir = args.output if args.output else 'data/outputs/performance'
     os.makedirs(output_dir, exist_ok=True)
     
     try:
-        # Load the CSV with technical indicators
+        # Load data
         logger.info(f"Loading data from {args.input}")
         df = pd.read_csv(args.input)
-        
         logger.info(f"Loaded data with shape {df.shape}")
-        unique_symbols = df['symbol'].unique()
-        logger.info(f"Found {len(unique_symbols)} symbols in the dataset")
+        
+        # Check if we have required columns
+        if 'symbol' not in df.columns:
+            raise ValueError("Input data must have a 'symbol' column")
+        
+        # Get list of unique symbols
+        symbols = df['symbol'].unique()
+        logger.info(f"Found {len(symbols)} symbols in the dataset")
         
         # Initialize performance analyzer
-        analyzer = PerformanceAnalyzer(max_investment_per_trade=args.max_investment)
+        analyzer = PerformanceAnalyzer(
+            max_investment=args.max_investment,
+            position_size_pct=args.position_size_pct
+        )
+        
+        # Log initial capital
         logger.info(f"Starting with initial capital: ₹{args.initial_capital:,.2f}")
         
-        # Process signals to generate trades
+        # Process signals
         trades = analyzer.process_signals(df, initial_capital=args.initial_capital)
+        logger.info(f"Generated {len(trades)} trades, final cash balance: ₹{analyzer.cash_balance:,.2f}")
+        
+        # Log total number of trades per stock
+        logger.info(f"Total trades across all stocks: {len(trades)}")
         
         # Calculate performance metrics
         metrics = analyzer.calculate_performance_metrics(trades, initial_capital=args.initial_capital)
-        logger.info(f"Total trades across all stocks: {len(trades)}")
         
-        # Print the overall metrics summary
+        # Print summary
         print("\nOverall Performance Summary:")
-        for key, value in metrics.items():
-            if isinstance(value, float):
-                if key in ['cagr', 'win_rate', 'max_drawdown', 'avg_capital_utilization']:
-                    print(f"{key.replace('_', ' ').title()}: {value:.2f}%")
-                else:
-                    print(f"{key.replace('_', ' ').title()}: ₹{value:,.2f}")
-            else:
-                print(f"{key.replace('_', ' ').title()}: {value}")
+        print(f"Total Trades: {metrics['total_trades']}")
+        print(f"Winning Trades: {metrics['winning_trades']}")
+        print(f"Losing Trades: {metrics['losing_trades']}")
+        print(f"Win Rate: {metrics['win_rate']:.2f}%")
+        print(f"Initial Capital: ₹{metrics['initial_capital']:,.2f}")
+        print(f"Max Capital Used: ₹{metrics['max_capital_used']:,.2f}")
+        print(f"Additional Capital Required: {metrics['additional_capital_required']}")
+        print(f"Final Capital: ₹{metrics['final_capital']:,.2f}")
+        print(f"Realized Pnl: ₹{metrics['realized_pnl']:,.2f}")
+        print(f"Unrealized Pnl: {metrics['unrealized_pnl']}")
+        print(f"Max Drawdown: {metrics['max_drawdown']:.2f}%")
+        print(f"Sharpe Ratio: ₹{metrics['sharpe_ratio']:.2f}")
+        print(f"Cagr: {metrics['cagr']:.2f}%")
+        print(f"Avg Trade Duration: ₹{metrics['avg_trade_duration']:.2f}")
+        print(f"Avg Capital Utilization: {metrics['avg_capital_utilization']}")
+        print(f"Max Concurrent Trades: {metrics['max_concurrent_trades']}")
         
-        # Save the metrics to a YAML file
+        # Save metrics to YAML
         metrics_file = os.path.join(output_dir, 'overall_metrics.yaml')
         with open(metrics_file, 'w') as f:
             yaml.dump(metrics, f, default_flow_style=False)

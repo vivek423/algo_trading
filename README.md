@@ -89,6 +89,101 @@ algo_trading/
    - WhatsApp notifications for trading signals
    - End-of-day trading summary reports
 
+## Architecture Diagram
+
+The following diagram illustrates the system architecture and data flow of the algorithmic trading system:
+
+```mermaid
+graph TD
+    %% Data Sources
+    KiteAPI[Zerodha Kite API] --> |Raw Market Data| DataFetcher
+
+    %% Data Processing Components
+    DataFetcher[Data Fetcher<br/>data_fetcher.py] --> |OHLC Data| DataStorage[(Data Storage<br/>data/inputs)]
+    DataStorage --> |Raw Data| TechnicalAnalysis[Technical Analysis<br/>technical_analysis.py]
+    TechnicalAnalysis --> |Indicators| IndicatorStorage[(Indicators<br/>data/outputs/indicators)]
+    
+    %% Optimization Components
+    IndicatorStorage --> GridSearch[Grid Search<br/>grid_search.py]
+    IndicatorStorage --> StockGridSearch[Stock Grid Search<br/>stock_grid_search.py]
+    GridSearch --> |Optimal Parameters| ConfigUpdate[Config Updater<br/>update_config.py]
+    StockGridSearch --> |Stock-Specific Parameters| ConfigUpdate
+    ConfigUpdate --> |Updated Configs| ConfigStorage[(Configuration<br/>config/)]
+    
+    %% Analysis & Recommendation Components
+    IndicatorStorage --> PerformanceAnalyzer[Performance Analyzer<br/>performance_analyzer.py]
+    IndicatorStorage --> RecommendationGenerator[Recommendation Generator<br/>generate_recommendations.py]
+    ConfigStorage --> |Config Parameters| TechnicalAnalysis
+    ConfigStorage --> |Trading Parameters| RecommendationGenerator
+    
+    %% Output Generation
+    PerformanceAnalyzer --> |Performance Metrics| PerformanceStorage[(Performance Results<br/>data/outputs/performance)]
+    RecommendationGenerator --> |Trading Signals| RecommendationStorage[(Recommendations<br/>data/outputs/recommendations)]
+    
+    %% Notification System
+    RecommendationGenerator --> |Trading Signals| WhatsAppNotifier[WhatsApp Notifier<br/>whatsapp_notifier.py]
+    TwilioAPI[Twilio API] --> |Notification Service| WhatsAppNotifier
+    WhatsAppNotifier --> |Notifications| Trader((Trader))
+    
+    %% Automation Components
+    CronJob[Cron Scheduler] --> |Scheduled Execution| DataFetcher
+    CronJob --> |Scheduled Execution| TechnicalAnalysis
+    CronJob --> |Scheduled Execution| RecommendationGenerator
+    CronJob --> |Execution Monitoring| CronChecker[Cron Checker<br/>check_cron.py]
+    
+    %% Authentication Components
+    TokenGetter[Token Getter<br/>get_request_token.py] --> |Authentication| SessionManager[Session Manager<br/>session_manager.py]
+    SessionManager --> |API Session| DataFetcher
+    
+    %% Configuration
+    ConfigStorage --> |Stock Selection| DataFetcher
+    ConfigStorage --> |Technical Params| TechnicalAnalysis
+    ConfigStorage --> |Strategy Params| PerformanceAnalyzer
+    
+    %% Style definitions
+    classDef api fill:#f9d4d4,stroke:#333,stroke-width:1px;
+    classDef component fill:#d4f9d4,stroke:#333,stroke-width:1px;
+    classDef storage fill:#d4d4f9,stroke:#333,stroke-width:1px;
+    classDef automation fill:#f9f9d4,stroke:#333,stroke-width:1px;
+    classDef user fill:#f9d4f9,stroke:#333,stroke-width:1px;
+    
+    %% Apply styles
+    class KiteAPI,TwilioAPI api;
+    class DataFetcher,TechnicalAnalysis,GridSearch,StockGridSearch,ConfigUpdate,PerformanceAnalyzer,RecommendationGenerator,WhatsAppNotifier,SessionManager,TokenGetter,CronChecker component;
+    class DataStorage,IndicatorStorage,ConfigStorage,PerformanceStorage,RecommendationStorage storage;
+    class CronJob automation;
+    class Trader user;
+```
+
+The architecture consists of several key components:
+
+1. **Data Pipeline**
+   - Data Fetcher retrieves OHLC data from Kite Connect API
+   - Technical Analysis processes raw data to generate indicators
+   - Data flows through storage locations in the `data/` directory
+
+2. **Optimization Subsystem**
+   - Grid Search performs global parameter optimization
+   - Stock Grid Search optimizes parameters for individual stocks
+   - Config Updater applies optimal parameters to configuration files
+
+3. **Analysis & Recommendation Engine**
+   - Performance Analyzer evaluates trading strategies
+   - Recommendation Generator produces trading signals
+   - WhatsApp Notifier delivers signals to the trader
+
+4. **Automation Framework**
+   - Cron Scheduler automates execution of scripts
+   - Cron Checker monitors job execution
+   - Session Manager handles API authentication
+
+5. **Configuration Management**
+   - Centralized configuration in YAML files
+   - Default and stock-specific parameter sets
+   - Authentication credentials in environment variables
+
+The system uses a modular design where each component performs a specific function and communicates through standardized data files, enabling flexibility and maintainability.
+
 ### Trading Recommendations
 
 1. **Generate Recommendations**
@@ -228,6 +323,15 @@ python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYM
 
 # Run performance analysis with specific capital and investment amounts
 python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --initial-capital 1000000 --max-investment 5000
+
+# Run with percentage-based position sizing (15% of available capital per trade)
+python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --position-size-pct 15
+
+# Run with aggressive position sizing (30% of available capital per trade)
+python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --position-size-pct 30 --max-investment 1000000
+
+# Run with conservative position sizing (5% of available capital per trade)
+python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --position-size-pct 5
 
 # Run performance analysis using stock-specific configurations
 python scripts/performance_analyzer.py --input data/outputs/all_indicators_YYYYMMDD.csv --use-stock-configs
