@@ -518,12 +518,11 @@ def run_grid_search(df, param_grid, initial_capital, max_investment):
             # Setup performance analyzer
             try:
                 analyzer = PerformanceAnalyzer(
-                    max_investment_per_trade=max_investment,
-                    initial_capital=initial_capital
+                    max_investment=max_investment
                 )
                 
                 # Process signals and get trades
-                trades = analyzer.process_signals(df_with_indicators)
+                trades = analyzer.process_signals(df_with_indicators, initial_capital=initial_capital)
                 
                 # Check if trades were generated
                 if not trades:
