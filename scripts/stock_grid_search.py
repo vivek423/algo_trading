@@ -381,8 +381,314 @@ def update_trading_config(trading_config_path: str, stock_configs: List[Dict]):
         logging.error(f"Traceback: {traceback.format_exc()}")
         return False
 
+def generate_parameter_grid():
+    """Generate parameter grid for grid search."""
+    # Define parameter ranges for grid search
+    param_ranges = {
+        'macd': {
+            'fast_period': [8, 12, 16],
+            'slow_period': [21, 26, 34],
+            'signal_period': [7, 9, 12]
+        },
+        'support_resistance': {
+            'support_period': [10, 15, 20],
+            'resistance_period': [10, 15, 20]
+        },
+        'atr': {
+            'window': [10, 14, 21]
+        },
+        'ema': {
+            'period': [10, 15, 20]
+        },
+        'bollinger_bands': {
+            'length': [20, 30, 40],
+            'std': [1.8, 2.0, 2.2]
+        },
+        'rsi': {
+            'length': [10, 14, 20],
+            'oversold': [25, 30, 35],
+            'overbought': [65, 70, 75]
+        },
+        'risk_management': {
+            'stop_loss_atr_multiplier': [1.5, 2.0, 2.5],
+            'take_profit_atr_multiplier': [2.0, 2.5, 3.0]
+        }
+    }
+    
+    # Generate all possible combinations
+    from itertools import product
+    
+    param_names = []
+    param_values = []
+    parameter_info = {}
+    
+    for section, params in param_ranges.items():
+        for param, values in params.items():
+            param_names.append(f"{section}.{param}")
+            param_values.append(values)
+            parameter_info[f"{section}.{param}"] = values
+    
+    combinations = []
+    for values in product(*param_values):
+        config = {}
+        for name, value in zip(param_names, values):
+            section, param = name.split('.')
+            if section not in config:
+                config[section] = {}
+            config[section][param] = value
+        combinations.append(config)
+    
+    logging.info(f"Generated {len(combinations)} parameter combinations")
+    return combinations, parameter_info
+
+def run_grid_search(df, param_grid, initial_capital, max_investment):
+    """
+    Run grid search on a dataframe with the parameter grid.
+    
+    Args:
+        df: DataFrame containing stock data
+        param_grid: List of parameter configurations to test
+        initial_capital: Initial capital for backtesting
+        max_investment: Maximum investment per trade
+        
+    Returns:
+        DataFrame with results for each parameter configuration
+    """
+    import tempfile
+    from technical_analysis import TechnicalAnalysis
+    from performance_analyzer import PerformanceAnalyzer
+    
+    results = []
+    
+    logging.info(f"Starting grid search with {len(param_grid)} parameter combinations")
+    
+    for i, params in enumerate(param_grid):
+        if i % 100 == 0:
+            logging.info(f"Progress: {i}/{len(param_grid)} combinations tested")
+            
+        try:
+            # Create temporary config file
+            config_path = None
+            try:
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+                    # Add columns section to the configuration
+                    config = {
+                        **params,
+                        'columns': {
+                            'open': 'open',
+                            'high': 'high',
+                            'low': 'low',
+                            'close': 'close',
+                            'volume': 'volume',
+                            'timestamp': 'timestamp'
+                        }
+                    }
+                    yaml.dump(config, f)
+                    config_path = f.name
+            except Exception as e:
+                logging.error(f"Error creating config file: {str(e)}")
+                continue
+                
+            # Make a copy of the dataframe to avoid any side effects
+            df_copy = df.copy()
+            
+            # Verify dataframe has required columns
+            required_columns = ['timestamp', 'open', 'high', 'low', 'close']
+            missing_columns = [col for col in required_columns if col not in df_copy.columns]
+            if missing_columns:
+                logging.error(f"DataFrame missing required columns: {missing_columns}")
+                continue
+                
+            # Calculate technical indicators
+            try:
+                ta = TechnicalAnalysis(config_path)
+                df_with_indicators = ta.calculate_all_indicators(df_copy)
+                
+                # Check if indicators were calculated successfully
+                if df_with_indicators is None or len(df_with_indicators) == 0:
+                    logging.error(f"No data after calculating indicators for combination {i}")
+                    continue
+                    
+            except Exception as e:
+                logging.error(f"Error calculating indicators: {str(e)}")
+                if config_path and os.path.exists(config_path):
+                    os.unlink(config_path)
+                continue
+            
+            # Setup performance analyzer
+            try:
+                analyzer = PerformanceAnalyzer(
+                    max_investment_per_trade=max_investment,
+                    initial_capital=initial_capital
+                )
+                
+                # Process signals and get trades
+                trades = analyzer.process_signals(df_with_indicators)
+                
+                # Check if trades were generated
+                if not trades:
+                    logging.debug(f"No trades generated for combination {i}")
+                    if config_path and os.path.exists(config_path):
+                        os.unlink(config_path)
+                    continue
+                
+                # Calculate performance metrics
+                metrics = analyzer.calculate_performance_metrics(trades, initial_capital=initial_capital)
+                
+                # Store results
+                result = {
+                    **params,
+                    'total_trades': metrics['total_trades'],
+                    'win_rate': metrics['win_rate'],
+                    'cagr': metrics['cagr'],
+                    'sharpe_ratio': metrics['sharpe_ratio'],
+                    'max_drawdown': metrics['max_drawdown'],
+                    'realized_pnl': metrics['realized_pnl'],
+                    'final_capital': metrics['final_capital']
+                }
+                
+                results.append(result)
+                
+            except Exception as e:
+                logging.error(f"Error in performance analysis: {str(e)}")
+            
+            # Clean up
+            if config_path and os.path.exists(config_path):
+                os.unlink(config_path)
+                
+        except Exception as e:
+            logging.error(f"Error testing combination {i}: {str(e)}")
+            continue
+    
+    # Convert to DataFrame
+    if not results:
+        logging.warning("No valid results generated")
+        return pd.DataFrame()
+        
+    return pd.DataFrame(results)
+
+def calculate_metrics(df, primary_metric):
+    """Calculate combined metrics for ranking configurations."""
+    if df.empty:
+        return df
+        
+    # Ensure we have the required columns
+    required_columns = ['total_trades', 'win_rate', 'cagr', 'sharpe_ratio']
+    for col in required_columns:
+        if col not in df.columns:
+            df[col] = 0
+    
+    # Add a combined score metric using weights
+    weights = {
+        'sharpe_ratio': 0.35,
+        'win_rate': 0.25,
+        'cagr': 0.25,
+        'total_trades': 0.15
+    }
+    
+    # Normalize each metric
+    for metric in weights.keys():
+        if df[metric].max() > 0:
+            df[f'{metric}_norm'] = df[metric] / df[metric].max()
+        else:
+            df[f'{metric}_norm'] = 0
+    
+    # Calculate combined score
+    df['combined_score'] = 0
+    for metric, weight in weights.items():
+        df['combined_score'] += df[f'{metric}_norm'] * weight
+    
+    return df
+
+def format_configurations(results_df, parameter_info=None):
+    """Format the configurations for YAML output."""
+    configs = []
+    
+    for _, row in results_df.iterrows():
+        # Extract configuration parameters
+        config = {}
+        
+        # Extract MACD parameters
+        if 'macd.fast_period' in row:
+            if 'macd' not in config:
+                config['macd'] = {}
+            config['macd']['fast_period'] = int(row['macd.fast_period'])
+            config['macd']['slow_period'] = int(row['macd.slow_period'])
+            config['macd']['signal_period'] = int(row['macd.signal_period'])
+        
+        # Extract support and resistance parameters
+        if 'support_resistance.support_period' in row:
+            if 'support_resistance' not in config:
+                config['support_resistance'] = {}
+            config['support_resistance']['support_period'] = int(row['support_resistance.support_period'])
+            config['support_resistance']['resistance_period'] = int(row['support_resistance.resistance_period'])
+        
+        # Extract ATR parameters
+        if 'atr.window' in row:
+            if 'atr' not in config:
+                config['atr'] = {}
+            config['atr']['window'] = int(row['atr.window'])
+        
+        # Extract EMA parameters
+        if 'ema.period' in row:
+            if 'ema' not in config:
+                config['ema'] = {}
+            config['ema']['period'] = int(row['ema.period'])
+        
+        # Extract Bollinger Bands parameters
+        if 'bollinger_bands.length' in row:
+            if 'bollinger_bands' not in config:
+                config['bollinger_bands'] = {}
+            config['bollinger_bands']['length'] = int(row['bollinger_bands.length'])
+            config['bollinger_bands']['std'] = float(row['bollinger_bands.std'])
+        
+        # Extract RSI parameters
+        if 'rsi.length' in row:
+            if 'rsi' not in config:
+                config['rsi'] = {}
+            config['rsi']['length'] = int(row['rsi.length'])
+            config['rsi']['oversold'] = int(row['rsi.oversold'])
+            config['rsi']['overbought'] = int(row['rsi.overbought'])
+        
+        # Extract risk management parameters
+        if 'risk_management.stop_loss_atr_multiplier' in row:
+            if 'risk_management' not in config:
+                config['risk_management'] = {}
+            config['risk_management']['stop_loss_atr_multiplier'] = float(row['risk_management.stop_loss_atr_multiplier'])
+            config['risk_management']['take_profit_atr_multiplier'] = float(row['risk_management.take_profit_atr_multiplier'])
+        
+        # Add standard column names
+        config['columns'] = {
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close',
+            'volume': 'volume',
+            'timestamp': 'timestamp'
+        }
+        
+        # Add performance metrics
+        config['performance'] = {
+            'total_trades': int(row.get('total_trades', 0)),
+            'win_rate': float(row.get('win_rate', 0)),
+            'cagr': float(row.get('cagr', 0)),
+            'sharpe_ratio': float(row.get('sharpe_ratio', 0)),
+            'max_drawdown': float(row.get('max_drawdown', 0)),
+            'realized_pnl': float(row.get('realized_pnl', 0)),
+            'final_capital': float(row.get('final_capital', 0))
+        }
+        
+        configs.append(config)
+    
+    return configs
+
 def main():
     """Main function to run stock-specific grid search"""
+    # Setup logging
+    logging.basicConfig(level=logging.INFO, 
+                       format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger('stock_grid_search')
+    
     parser = argparse.ArgumentParser(description='Run stock-specific grid search')
     parser.add_argument('--input-dir', type=str, help='Directory containing input CSV files')
     parser.add_argument('--input', type=str, help='Single input CSV file with multiple stocks')
