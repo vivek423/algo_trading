@@ -104,23 +104,61 @@ class TechnicalAnalysis:
     def calculate_macd(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate MACD indicator."""
         try:
+            # Defensive checks
+            if df is None:
+                logger.error("DataFrame is None in calculate_macd")
+                raise ValueError("DataFrame cannot be None")
+                
+            if 'close' not in df.columns:
+                logger.error(f"Missing 'close' column in DataFrame. Available columns: {df.columns.tolist()}")
+                raise ValueError("Missing required column 'close' for MACD calculation")
+                
+            # Check for NaN values in close
+            if df['close'].isna().any():
+                logger.warning(f"DataFrame contains NaN values in 'close' column. Filling with forward fill method.")
+                df['close'] = df['close'].ffill()
+                
+            # Get MACD parameters
+            fast_period = self.config['macd']['fast_period']
+            slow_period = self.config['macd']['slow_period']
+            signal_period = self.config['macd']['signal_period']
+            
+            # Calculate MACD
             macd = ta.macd(
                 close=df['close'],
-                fast=self.config['macd']['fast_period'],
-                slow=self.config['macd']['slow_period'],
-                signal=self.config['macd']['signal_period']
+                fast=fast_period,
+                slow=slow_period,
+                signal=signal_period
             )
             
+            # Create column names
+            macd_line_col = f'MACD_{fast_period}_{slow_period}_{signal_period}'
+            macd_signal_col = f'MACDs_{fast_period}_{slow_period}_{signal_period}'
+            macd_hist_col = f'MACDh_{fast_period}_{slow_period}_{signal_period}'
+            
+            # Check if MACD calculation returned expected columns
+            if macd is None or macd_line_col not in macd.columns:
+                logger.error("MACD calculation failed or returned unexpected structure")
+                # Create default columns with NaN values to prevent further errors
+                df['macd_line'] = float('nan')
+                df['macd_signal'] = float('nan')
+                df['macd_hist'] = float('nan')
+                return df
+            
             # Rename columns to match requirements
-            df['macd_line'] = macd[f'MACD_{self.config["macd"]["fast_period"]}_{self.config["macd"]["slow_period"]}_{self.config["macd"]["signal_period"]}']
-            df['macd_signal'] = macd[f'MACDs_{self.config["macd"]["fast_period"]}_{self.config["macd"]["slow_period"]}_{self.config["macd"]["signal_period"]}']
-            df['macd_hist'] = macd[f'MACDh_{self.config["macd"]["fast_period"]}_{self.config["macd"]["slow_period"]}_{self.config["macd"]["signal_period"]}']
+            df['macd_line'] = macd[macd_line_col]
+            df['macd_signal'] = macd[macd_signal_col]
+            df['macd_hist'] = macd[macd_hist_col]
             
             return df
             
         except Exception as e:
             logger.error(f"Error calculating MACD: {str(e)}")
-            raise
+            # Create default columns with NaN values to prevent further errors
+            df['macd_line'] = float('nan')
+            df['macd_signal'] = float('nan')
+            df['macd_hist'] = float('nan')
+            return df
             
     def calculate_support_resistance(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate support and resistance levels."""
@@ -220,13 +258,13 @@ class TechnicalAnalysis:
             long_condition = bullish_crossover & \
                             (df['close'] > df[f'ema_{ema_period}']) & \
                             (df['close'] > df[f'support_{support_period}']) & \
-                            (df['macd_line'] < 0) & (df['macd_signal'] < 0) & \
+                            ((df['macd_line'] < 0) | (df['macd_signal'] < 0)) & \
                             (((df['close'] - df[f'support_{support_period}']) / df['close']) <= df['atr_threshold'])
             
             short_condition = bearish_crossover & \
                             (df['close'] < df[f'ema_{ema_period}']) & \
                             (df['close'] < df[f'resistance_{resistance_period}']) & \
-                            (df['macd_line'] > 0) & (df['macd_signal'] > 0) & \
+                            ((df['macd_line'] > 0) | (df['macd_signal'] > 0)) & \
                             (((df[f'resistance_{resistance_period}'] - df['close']) / df['close']) <= df['atr_threshold'])
             
             df['macd_atr_signal'] = 0
@@ -298,31 +336,113 @@ class TechnicalAnalysis:
     def calculate_all_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate all technical indicators."""
         try:
-            df = self.calculate_macd(df)
-            df = self.calculate_support_resistance(df)
-            df = self.calculate_atr(df)
-            df = self.calculate_ema(df)
-            df = self.calculate_bollinger_bands(df)
-            df = self.calculate_rsi(df)
-            df = self.generate_signals(df)
-            df = self.calculate_stop_loss_take_profit(df)
+            # Defensive check
+            if df is None:
+                logger.error("DataFrame is None in calculate_all_indicators")
+                raise ValueError("DataFrame cannot be None")
+                
+            # Check for required columns
+            required_columns = ['open', 'high', 'low', 'close']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                logger.error(f"Missing required columns: {missing_columns}")
+                raise ValueError(f"Missing required columns: {missing_columns}")
             
-            # Drop NaN values from calculations
-            df.dropna(subset=[
-                f'ema_{self.config["ema"]["period"]}', 
+            # Make a copy to avoid modifying the original
+            df = df.copy()
+            
+            # Handle potential timestamp issues
+            if 'timestamp' in df.columns and not df.index.name == 'timestamp':
+                df['timestamp'] = pd.to_datetime(df['timestamp'])
+                df.set_index('timestamp', inplace=True)
+            
+            # Calculate each indicator wrapped in try-except to continue if one fails
+            try:
+                df = self.calculate_macd(df)
+            except Exception as e:
+                logger.error(f"Error calculating MACD: {str(e)}")
+                df['macd_line'] = float('nan')
+                df['macd_signal'] = float('nan')
+                df['macd_hist'] = float('nan')
+            
+            try:
+                df = self.calculate_support_resistance(df)
+            except Exception as e:
+                logger.error(f"Error calculating support/resistance: {str(e)}")
+                df[f'support_{self.config["support_resistance"]["support_period"]}'] = float('nan')
+                df[f'resistance_{self.config["support_resistance"]["resistance_period"]}'] = float('nan')
+            
+            try:
+                df = self.calculate_atr(df)
+            except Exception as e:
+                logger.error(f"Error calculating ATR: {str(e)}")
+                df['atr'] = float('nan')
+                df['atr_threshold'] = float('nan')
+            
+            try:
+                df = self.calculate_ema(df)
+            except Exception as e:
+                logger.error(f"Error calculating EMA: {str(e)}")
+                df[f'ema_{self.config["ema"]["period"]}'] = float('nan')
+            
+            try:
+                df = self.calculate_bollinger_bands(df)
+            except Exception as e:
+                logger.error(f"Error calculating Bollinger Bands: {str(e)}")
+                df['bb_lower'] = float('nan')
+                df['bb_middle'] = float('nan')
+                df['bb_upper'] = float('nan')
+            
+            try:
+                df = self.calculate_rsi(df)
+            except Exception as e:
+                logger.error(f"Error calculating RSI: {str(e)}")
+                df['rsi'] = float('nan')
+            
+            try:
+                df = self.generate_signals(df)
+            except Exception as e:
+                logger.error(f"Error generating signals: {str(e)}")
+                df['signal_macd'] = 0
+                df['signal_ema'] = 0
+                df['signal_bollinger'] = 0
+                df['signal_rsi'] = 0
+                df['signal_combined'] = 0
+            
+            try:
+                df = self.calculate_stop_loss_take_profit(df)
+            except Exception as e:
+                logger.error(f"Error calculating stop loss/take profit: {str(e)}")
+                df['stop_loss'] = float('nan')
+                df['take_profit'] = float('nan')
+                df['risk_reward_ratio'] = float('nan')
+            
+            # Drop rows with too many NaN values, but don't be too strict
+            # Keep rows with at least 70% of the indicator columns populated
+            indicator_columns = [
                 'macd_line', 'macd_signal', 'macd_hist',
                 f'support_{self.config["support_resistance"]["support_period"]}', 
                 f'resistance_{self.config["support_resistance"]["resistance_period"]}',
                 'atr', 'atr_threshold',
+                f'ema_{self.config["ema"]["period"]}',
                 'bb_lower', 'bb_middle', 'bb_upper',
                 'rsi'
-            ], inplace=True)
+            ]
             
-            return df
+            df_filtered = df.dropna(subset=indicator_columns, thresh=int(0.7 * len(indicator_columns)))
+            
+            if len(df_filtered) < len(df):
+                logger.warning(f"Dropped {len(df) - len(df_filtered)} rows with too many NaN values")
+            
+            if len(df_filtered) == 0:
+                logger.warning("All rows were dropped due to NaN values. Returning original dataframe with indicators.")
+                return df
+                
+            return df_filtered
             
         except Exception as e:
             logger.error(f"Error calculating indicators: {str(e)}")
-            raise
+            return df
 
 def main():
     """Main function to run technical analysis."""

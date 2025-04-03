@@ -289,7 +289,12 @@ class RecommendationGenerator:
         
         try:
             # Get buy recommendations only
-            buy_recommendations = df[df['recommendation'] == 'BUY']
+            # Make sure signal_combined exists
+            if 'signal_combined' not in df.columns:
+                logger.warning("No signal_combined column found in recommendations")
+                return
+                
+            buy_recommendations = df[df['signal_combined'] == 1]
             
             if buy_recommendations.empty:
                 logger.info("No buy recommendations to send notification for")
@@ -298,19 +303,27 @@ class RecommendationGenerator:
             # Format data for notification
             recommendations = []
             for _, row in buy_recommendations.iterrows():
+                # Skip if required columns are missing
+                if not all(col in row for col in ['symbol', 'close', 'quantity']):
+                    logger.warning(f"Missing required columns for stock {row.get('symbol', 'unknown')}")
+                    continue
+                    
                 recommendations.append({
                     'symbol': row['symbol'],
-                    'close': row['close_price'],
-                    'quantity': row['max_quantity'],
+                    'close': row['close'],
+                    'quantity': row['quantity'],
                     'stop_loss': row['stop_loss'] if 'stop_loss' in row and pd.notna(row['stop_loss']) else 0.0,
                     'take_profit': row['take_profit'] if 'take_profit' in row and pd.notna(row['take_profit']) else 0.0
                 })
             
-            # Send notification
-            if self.notifier.send_recommendation_alert(recommendations):
-                logger.info(f"WhatsApp notification sent for {len(recommendations)} stock recommendations")
+            # Send notification only if there are valid recommendations
+            if recommendations:
+                if self.notifier.send_recommendation_alert(recommendations):
+                    logger.info(f"WhatsApp notification sent for {len(recommendations)} stock recommendations")
+                else:
+                    logger.warning("Failed to send WhatsApp notification")
             else:
-                logger.warning("Failed to send WhatsApp notification")
+                logger.warning("No valid recommendations to send")
                 
         except Exception as e:
             logger.error(f"Error sending WhatsApp notification: {str(e)}")
@@ -348,6 +361,8 @@ def main():
                         help='Send end-of-day summary (without generating new recommendations)')
     parser.add_argument('--date', '-d', type=str,
                         help='Date for EOD summary in YYYY-MM-DD format (defaults to today)')
+    parser.add_argument('--no-new-scan', action='store_true',
+                        help='Only display existing recommendations without scanning for new ones')
     
     args = parser.parse_args()
     
@@ -365,20 +380,37 @@ def main():
         return
     
     # Generate recommendations
-    recommendations = generator.generate_recommendations()
+    if args.no_new_scan:
+        # Just read existing recommendations from today's file
+        today_date = datetime.now().strftime('%Y%m%d')
+        today_file = f'data/outputs/recommendations/stock_recommendations_{today_date}.csv'
+        
+        if os.path.exists(today_file):
+            logger.info(f"Reading existing recommendations from {today_file}")
+            recommendations = pd.read_csv(today_file)
+        else:
+            logger.warning(f"No existing recommendations found for today ({today_date})")
+            recommendations = pd.DataFrame()
+    else:
+        # Generate new recommendations
+        recommendations = generator.generate_recommendations()
     
     # Print summary
     if not recommendations.empty:
         print("\nStock Recommendations Summary:")
         print("=" * 80)
         for _, row in recommendations.iterrows():
-            print(f"{row['symbol']}: ₹{row['close_price']:.2f} | Quantity: {row['max_quantity']} | "
-                  f"Stop Loss: ₹{row['stop_loss']:.2f} | Take Profit: ₹{row['take_profit']:.2f}")
+            # Check if the required columns exist
+            if all(col in row for col in ['symbol', 'close']):
+                quantity_str = f"Quantity: {row['quantity']} | " if 'quantity' in row else ""
+                stop_loss_str = f"Stop Loss: ₹{row['stop_loss']:.2f} | " if 'stop_loss' in row else ""
+                take_profit_str = f"Take Profit: ₹{row['take_profit']:.2f}" if 'take_profit' in row else ""
+                print(f"{row['symbol']}: ₹{row['close']:.2f} | {quantity_str}{stop_loss_str}{take_profit_str}")
         print("=" * 80)
         print(f"Total recommendations: {len(recommendations)}")
         
-        if args.notifications:
-            print("WhatsApp notification has been sent!")
+        if args.notifications and not args.no_new_scan:
+            print("WhatsApp notification has been attempted!")
     else:
         print("\nNo buy signals detected for any stocks at this time.")
     

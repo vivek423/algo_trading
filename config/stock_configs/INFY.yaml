@@ -1,45 +1,36 @@
-# Technical Analysis Parameters - Optimized via Grid Search for INFY
-
-# MACD Parameters
-macd:
-  fast_period: 8
-  slow_period: 21
-  signal_period: 7
-
-# Support and Resistance Parameters
-support_resistance:
-  support_period: 10
-  resistance_period: 10
-
-# ATR Parameters
 atr:
-  window: 10
-
-# EMA Parameters
-ema:
-  period: 10
-
-# Bollinger Bands Parameters
+  window: 14
 bollinger_bands:
   length: 20
   std: 2.0
-
-# RSI Parameters
+columns:
+  close: close
+  high: high
+  low: low
+  open: open
+  timestamp: timestamp
+  volume: volume
+ema:
+  period: 20
+macd:
+  fast_period: 12
+  signal_period: 9
+  slow_period: 26
+performance:
+  cagr: 1.3380763921458483
+  final_capital: 1042321.0790998539
+  max_drawdown: 0.806190641757703
+  realized_pnl: 42321.07909985387
+  sharpe_ratio: -0.08593781723290925
+  total_trades: 8
+  win_rate: 62.5
+risk_management:
+  stop_loss_atr_multiplier: 2.0
+  take_profit_atr_multiplier: 3.0
 rsi:
   length: 14
+  overbought: 70
   oversold: 30
-  overbought: 65
-
-# Risk Management Parameters
-risk_management:
-  stop_loss_atr_multiplier: 1.5
-  take_profit_atr_multiplier: 3.0
-
-# Default column names
-columns:
-  open: 'open'
-  high: 'high'
-  low: 'low'
-  close: 'close'
-  volume: 'volume'
-  timestamp: 'timestamp'
+support_resistance:
+  resistance_period: 20
+  support_period: 20
