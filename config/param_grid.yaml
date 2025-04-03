@@ -1,0 +1,26 @@
+macd:
+  fast_period: [8, 10, 12, 14]
+  slow_period: [21, 26, 30, 34]
+  signal_period: [7, 9, 11]
+  
+rsi:
+  length: [9, 14, 21]
+  overbought: [70, 75, 80]
+  oversold: [20, 25, 30]
+  
+ema:
+  period: [9, 20, 50, 100]
+  
+bollinger_bands:
+  length: [10, 20, 30]
+  std_dev: [1.5, 2.0, 2.5]
+  
+atr:
+  window: [10, 14, 21]
+  
+support_resistance:
+  period: [10, 20, 30]
+  
+risk_management:
+  stop_loss_pct: [5, 7, 10]
+  take_profit_pct: [10, 15, 20] 
