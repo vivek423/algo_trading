@@ -414,11 +414,8 @@ def main():
     else:
         print("\nNo buy signals detected for any stocks at this time.")
     
-    # Send EOD summary if it's end of day (after 4:00 PM IST)
-    ist_now = datetime.now(pytz.timezone('Asia/Kolkata'))
-    if ist_now.hour >= 16 and args.notifications:
-        logger.info("Sending end-of-day summary after recommendation generation")
-        generator.send_eod_summary()
+    # Removing automatic EOD summary logic to prevent duplicate notifications
+    # The dedicated cron job with --eod-summary flag will handle this instead
 
 if __name__ == "__main__":
     main() 
