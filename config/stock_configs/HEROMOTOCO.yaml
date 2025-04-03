@@ -1,45 +1,36 @@
-# Technical Analysis Parameters - Optimized via Grid Search for HEROMOTOCO
-
-# MACD Parameters
-macd:
-  fast_period: 8
-  slow_period: 21
-  signal_period: 7
-
-# Support and Resistance Parameters
-support_resistance:
-  support_period: 10
-  resistance_period: 10
-
-# ATR Parameters
 atr:
   window: 14
-
-# EMA Parameters
-ema:
-  period: 10
-
-# Bollinger Bands Parameters
 bollinger_bands:
-  length: 30
-  std: 2.2
-
-# RSI Parameters
-rsi:
-  length: 14
-  oversold: 30
-  overbought: 65
-
-# Risk Management Parameters
+  length: 20
+  std: 2.0
+columns:
+  close: close
+  high: high
+  low: low
+  open: open
+  timestamp: timestamp
+  volume: volume
+ema:
+  period: 20
+macd:
+  fast_period: 12
+  signal_period: 9
+  slow_period: 26
+performance:
+  cagr: 1.014202248187468
+  final_capital: 1038431.6135730733
+  max_drawdown: 0.7263985514588143
+  realized_pnl: 38431.61357307329
+  sharpe_ratio: -0.17255361639279074
+  total_trades: 9
+  win_rate: 55.55555555555556
 risk_management:
   stop_loss_atr_multiplier: 2.0
   take_profit_atr_multiplier: 3.0
-
-# Default column names
-columns:
-  open: 'open'
-  high: 'high'
-  low: 'low'
-  close: 'close'
-  volume: 'volume'
-  timestamp: 'timestamp'
+rsi:
+  length: 14
+  overbought: 70
+  oversold: 30
+support_resistance:
+  resistance_period: 20
+  support_period: 20

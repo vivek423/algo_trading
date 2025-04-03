@@ -1,45 +1,36 @@
-# Technical Analysis Parameters - Optimized via Grid Search for HINDALCO
-
-# MACD Parameters
-macd:
-  fast_period: 8
-  slow_period: 21
-  signal_period: 7
-
-# Support and Resistance Parameters
-support_resistance:
-  support_period: 10
-  resistance_period: 10
-
-# ATR Parameters
 atr:
-  window: 10
-
-# EMA Parameters
-ema:
-  period: 10
-
-# Bollinger Bands Parameters
+  window: 14
 bollinger_bands:
   length: 20
   std: 2.0
-
-# RSI Parameters
-rsi:
-  length: 20
-  oversold: 25
-  overbought: 65
-
-# Risk Management Parameters
+columns:
+  close: close
+  high: high
+  low: low
+  open: open
+  timestamp: timestamp
+  volume: volume
+ema:
+  period: 20
+macd:
+  fast_period: 12
+  signal_period: 9
+  slow_period: 26
+performance:
+  cagr: 25.413201707854817
+  final_capital: 1023838.5270606343
+  max_drawdown: 0.0
+  realized_pnl: 23838.527060634304
+  sharpe_ratio: 10.0
+  total_trades: 1
+  win_rate: 100.0
 risk_management:
   stop_loss_atr_multiplier: 2.0
   take_profit_atr_multiplier: 3.0
-
-# Default column names
-columns:
-  open: 'open'
-  high: 'high'
-  low: 'low'
-  close: 'close'
-  volume: 'volume'
-  timestamp: 'timestamp'
+rsi:
+  length: 14
+  overbought: 70
+  oversold: 30
+support_resistance:
+  resistance_period: 20
+  support_period: 20

@@ -1,45 +1,36 @@
-# Technical Analysis Parameters - Optimized via Grid Search for IDFC
-
-# MACD Parameters
-macd:
-  fast_period: 12
-  slow_period: 26
-  signal_period: 9
-
-# Support and Resistance Parameters
-support_resistance:
-  support_period: 14
-  resistance_period: 14
-
-# ATR Parameters
 atr:
   window: 14
-
-# EMA Parameters
-ema:
-  period: 20
-
-# Bollinger Bands Parameters
 bollinger_bands:
   length: 20
   std: 2.0
-
-# RSI Parameters
-rsi:
-  length: 14
-  oversold: 30
-  overbought: 70
-
-# Risk Management Parameters
+columns:
+  close: close
+  high: high
+  low: low
+  open: open
+  timestamp: timestamp
+  volume: volume
+ema:
+  period: 20
+macd:
+  fast_period: 12
+  signal_period: 9
+  slow_period: 26
+performance:
+  cagr: 24.646328208152156
+  final_capital: 1022275.491563733
+  max_drawdown: 0.0
+  realized_pnl: 22275.49156373297
+  sharpe_ratio: 10.0
+  total_trades: 1
+  win_rate: 100.0
 risk_management:
   stop_loss_atr_multiplier: 2.0
   take_profit_atr_multiplier: 3.0
-
-# Default column names
-columns:
-  open: 'open'
-  high: 'high'
-  low: 'low'
-  close: 'close'
-  volume: 'volume'
-  timestamp: 'timestamp'
+rsi:
+  length: 14
+  overbought: 70
+  oversold: 30
+support_resistance:
+  resistance_period: 20
+  support_period: 20

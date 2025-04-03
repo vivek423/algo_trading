@@ -27,6 +27,7 @@ algo_trading/
 │   ├── stock_grid_search.py      # Stock-specific parameter optimization
 │   ├── update_config.py          # Auto-updates config with best params
 │   ├── generate_recommendations.py # Generates trading recommendations
+│   ├── stock_selector.py         # Filters stocks based on performance criteria
 │   ├── whatsapp_notifier.py      # Sends WhatsApp notifications
 │   ├── setup_crontab.sh          # Crontab setup automation script
 │   ├── check_cron.py             # Monitors cron job execution
@@ -361,6 +362,29 @@ python scripts/grid_search.py --input-dir data/inputs --initial-capital 1000000 
 # Limit the search to a subset of combinations
 python scripts/grid_search.py --input-dir data/inputs --max-combinations 1000
 ```
+
+### Stock Selector
+
+The Stock Selector script helps you filter and identify the best-performing stocks based on various performance criteria.
+
+```bash
+# Select stocks with Sharpe Ratio ≥ 0.5 and Win Rate ≥ 60%
+python scripts/stock_selector.py --input data/outputs/indicators/all_indicators_YYYYMMDD.csv --output data/outputs/selected_stocks.csv --criteria sharpe_ratio win_rate --threshold 0.5 60.0
+
+# Select stocks with multiple criteria: Sharpe Ratio ≥ 1.0, Win Rate ≥ 70%, and CAGR ≥ 15%
+python scripts/stock_selector.py --input data/outputs/indicators/all_indicators_YYYYMMDD.csv --output data/outputs/selected_stocks.csv --criteria sharpe_ratio win_rate cagr --threshold 1.0 70.0 15.0
+
+# Select stocks with profit factor ≥ 2.0 and max drawdown better than -20%
+python scripts/stock_selector.py --input data/outputs/indicators/all_indicators_YYYYMMDD.csv --output data/outputs/selected_stocks.csv --criteria profit_factor max_drawdown --threshold 2.0 -20.0
+```
+
+Available criteria include:
+- `sharpe_ratio`: Risk-adjusted return metric
+- `win_rate`: Percentage of winning trades
+- `cagr`: Compound Annual Growth Rate
+- `max_drawdown`: Maximum peak-to-trough decline
+- `return_pct`: Total percentage return
+- `profit_factor`: Ratio of gross profit to gross loss
 
 ### Stock-Specific Grid Search
 
