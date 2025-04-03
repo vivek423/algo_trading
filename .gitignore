@@ -58,3 +58,10 @@ crontab_config.txt
 crontab_backup.txt
 crontab_config_with_recommendations.txt
 *.csv  # Ignore all CSV files 
+
+# Adhoc scripts and temporary files
+analyze_trades.py
+config/temp_indicators.yaml
+scripts/send_whatsapp_notification.py
+scripts/stock_selector.py
+scripts/update_configs.py 
