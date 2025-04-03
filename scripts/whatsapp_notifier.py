@@ -151,13 +151,26 @@ class WhatsAppNotifier:
             # Calculate statistics
             total_recommendations = len(recommendations_df)
             
+            # Map signal_combined to recommendation type (1 = BUY, -1 = SELL, 0 = HOLD)
+            if 'signal_combined' in recommendations_df.columns:
+                recommendations_df['recommendation'] = recommendations_df['signal_combined'].apply(
+                    lambda x: 'BUY' if x == 1 else ('SELL' if x == -1 else 'HOLD'))
+            else:
+                # Default all to BUY if signal_combined not present
+                recommendations_df['recommendation'] = 'BUY'
+            
             # Count by recommendation type
             buy_signals = len(recommendations_df[recommendations_df['recommendation'] == 'BUY'])
             sell_signals = len(recommendations_df[recommendations_df['recommendation'] == 'SELL'])
             hold_signals = len(recommendations_df[recommendations_df['recommendation'] == 'HOLD'])
             
-            # Calculate total potential investment
-            buy_investment = recommendations_df[recommendations_df['recommendation'] == 'BUY']['investment_amount'].sum()
+            # Calculate total potential investment for BUY signals
+            # If quantity and close exist, calculate investment amount
+            if 'quantity' in recommendations_df.columns and 'close' in recommendations_df.columns:
+                recommendations_df['investment_amount'] = recommendations_df['quantity'] * recommendations_df['close']
+                buy_investment = recommendations_df[recommendations_df['recommendation'] == 'BUY']['investment_amount'].sum()
+            else:
+                buy_investment = 0.0
             
             # Add summary statistics
             message_body += f"*Total Stocks Analyzed:* {total_recommendations}\n"
@@ -173,12 +186,17 @@ class WhatsAppNotifier:
                 buy_stocks = recommendations_df[recommendations_df['recommendation'] == 'BUY']
                 
                 for i, (_, row) in enumerate(buy_stocks.iterrows(), 1):
-                    message_body += f"{i}. *{row['symbol']}*: ₹{row['close_price']:.2f} × {row['max_quantity']} units\n"
-                    message_body += f"   Investment: ₹{row['investment_amount']:,.2f}\n"
+                    symbol = row['symbol']
+                    close_price = row['close']
+                    quantity = row['quantity'] if 'quantity' in row else 0
+                    investment = close_price * quantity
                     
-                    if pd.notna(row['stop_loss']) and pd.notna(row['take_profit']):
-                        potential_profit = (row['take_profit'] - row['close_price']) * row['max_quantity']
-                        potential_loss = (row['close_price'] - row['stop_loss']) * row['max_quantity']
+                    message_body += f"{i}. *{symbol}*: ₹{close_price:.2f} × {quantity} units\n"
+                    message_body += f"   Investment: ₹{investment:,.2f}\n"
+                    
+                    if 'stop_loss' in row and 'take_profit' in row and pd.notna(row['stop_loss']) and pd.notna(row['take_profit']):
+                        potential_profit = (row['take_profit'] - close_price) * quantity
+                        potential_loss = (close_price - row['stop_loss']) * quantity
                         
                         message_body += f"   Potential Profit: ₹{potential_profit:,.2f}\n"
                         message_body += f"   Max Loss: ₹{potential_loss:,.2f}\n"
@@ -190,7 +208,7 @@ class WhatsAppNotifier:
                 sell_stocks = recommendations_df[recommendations_df['recommendation'] == 'SELL']
                 
                 for i, (_, row) in enumerate(sell_stocks.iterrows(), 1):
-                    message_body += f"{i}. *{row['symbol']}*: ₹{row['close_price']:.2f}\n"
+                    message_body += f"{i}. *{row['symbol']}*: ₹{row['close']:.2f}\n"
                 
                 message_body += "\n"
             
