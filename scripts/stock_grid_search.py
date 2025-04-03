@@ -614,6 +614,13 @@ def format_configurations(results_df, parameter_info=None):
             config['macd']['fast_period'] = int(row['macd.fast_period'])
             config['macd']['slow_period'] = int(row['macd.slow_period'])
             config['macd']['signal_period'] = int(row['macd.signal_period'])
+        else:
+            # Add default MACD parameters if not present
+            config['macd'] = {
+                'fast_period': 12,
+                'slow_period': 26,
+                'signal_period': 9
+            }
         
         # Extract support and resistance parameters
         if 'support_resistance.support_period' in row:
@@ -621,18 +628,34 @@ def format_configurations(results_df, parameter_info=None):
                 config['support_resistance'] = {}
             config['support_resistance']['support_period'] = int(row['support_resistance.support_period'])
             config['support_resistance']['resistance_period'] = int(row['support_resistance.resistance_period'])
+        else:
+            # Add default support_resistance parameters if not present
+            config['support_resistance'] = {
+                'support_period': 20,
+                'resistance_period': 20
+            }
         
         # Extract ATR parameters
         if 'atr.window' in row:
             if 'atr' not in config:
                 config['atr'] = {}
             config['atr']['window'] = int(row['atr.window'])
+        else:
+            # Add default ATR parameters if not present
+            config['atr'] = {
+                'window': 14
+            }
         
         # Extract EMA parameters
         if 'ema.period' in row:
             if 'ema' not in config:
                 config['ema'] = {}
             config['ema']['period'] = int(row['ema.period'])
+        else:
+            # Add default EMA parameters if not present
+            config['ema'] = {
+                'period': 20
+            }
         
         # Extract Bollinger Bands parameters
         if 'bollinger_bands.length' in row:
@@ -640,6 +663,12 @@ def format_configurations(results_df, parameter_info=None):
                 config['bollinger_bands'] = {}
             config['bollinger_bands']['length'] = int(row['bollinger_bands.length'])
             config['bollinger_bands']['std'] = float(row['bollinger_bands.std'])
+        else:
+            # Add default Bollinger Bands parameters if not present
+            config['bollinger_bands'] = {
+                'length': 20,
+                'std': 2.0
+            }
         
         # Extract RSI parameters
         if 'rsi.length' in row:
@@ -648,6 +677,13 @@ def format_configurations(results_df, parameter_info=None):
             config['rsi']['length'] = int(row['rsi.length'])
             config['rsi']['oversold'] = int(row['rsi.oversold'])
             config['rsi']['overbought'] = int(row['rsi.overbought'])
+        else:
+            # Add default RSI parameters if not present
+            config['rsi'] = {
+                'length': 14,
+                'oversold': 30,
+                'overbought': 70
+            }
         
         # Extract risk management parameters
         if 'risk_management.stop_loss_atr_multiplier' in row:
@@ -655,6 +691,12 @@ def format_configurations(results_df, parameter_info=None):
                 config['risk_management'] = {}
             config['risk_management']['stop_loss_atr_multiplier'] = float(row['risk_management.stop_loss_atr_multiplier'])
             config['risk_management']['take_profit_atr_multiplier'] = float(row['risk_management.take_profit_atr_multiplier'])
+        else:
+            # Add default risk management parameters if not present
+            config['risk_management'] = {
+                'stop_loss_atr_multiplier': 2.0,
+                'take_profit_atr_multiplier': 3.0
+            }
         
         # Add standard column names
         config['columns'] = {
