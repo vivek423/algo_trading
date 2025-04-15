@@ -17,7 +17,7 @@ macd:
   signal_period: 9
   slow_period: 26
 performance:
-  cagr: 0.7710782802593963
+  cagr: 0.7718507817006559
   final_capital: 1021317.1192573505
   max_drawdown: 0.0
   realized_pnl: 21317.1192573504

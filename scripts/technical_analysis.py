@@ -258,13 +258,13 @@ class TechnicalAnalysis:
             long_condition = bullish_crossover & \
                             (df['close'] > df[f'ema_{ema_period}']) & \
                             (df['close'] > df[f'support_{support_period}']) & \
-                            ((df['macd_line'] < 0) | (df['macd_signal'] < 0)) & \
+                            ((df['macd_line'] < 0) & (df['macd_signal'] < 0)) & \
                             (((df['close'] - df[f'support_{support_period}']) / df['close']) <= df['atr_threshold'])
             
             short_condition = bearish_crossover & \
                             (df['close'] < df[f'ema_{ema_period}']) & \
                             (df['close'] < df[f'resistance_{resistance_period}']) & \
-                            ((df['macd_line'] > 0) | (df['macd_signal'] > 0)) & \
+                            ((df['macd_line'] > 0) & (df['macd_signal'] > 0)) & \
                             (((df[f'resistance_{resistance_period}'] - df['close']) / df['close']) <= df['atr_threshold'])
             
             df['macd_atr_signal'] = 0

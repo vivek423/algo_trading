@@ -182,8 +182,9 @@ class DataFetcher:
                     # Get the latest timestamp from existing data
                     latest_timestamp = existing_df.index.max()
                     
-                    # For daily data, handle current day differently
+                    # Handle different intervals
                     if interval == "day":
+                        # For daily data, handle current day differently
                         today = now.date()
                         if latest_timestamp.date() == today:
                             # During market hours, remove today's incomplete data
@@ -201,13 +202,38 @@ class DataFetcher:
                         else:
                             # Set from_date to the day after the last complete day
                             from_date = (latest_timestamp + timedelta(days=1)).replace(tzinfo=None)
+                    else:
+                        # For intraday data (hourly, minute, etc.)
+                        market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+                        market_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
+                        today = now.date()
+                        
+                        # During market hours, always update the latest candle
+                        if market_open <= now <= market_close:
+                            # For intraday data, we want to update the current day's data every time
+                            # This ensures the latest candle is updated with the most recent price
+                            if latest_timestamp.date() == today:
+                                # Keep all data except today's, which we'll refresh
+                                existing_df = existing_df[existing_df.index.date < today]
+                                # Set from_date to the start of today
+                                from_date = datetime.combine(today, datetime.min.time()).replace(tzinfo=None)
+                                logger.info(f"Refreshing today's intraday data for {symbol}")
+                            else:
+                                # We don't have today's data yet, fetch from the latest timestamp
+                                from_date = latest_timestamp.replace(tzinfo=None)
+                                logger.info(f"Fetching today's new intraday data for {symbol}")
+                        elif now > market_close:
+                            # After market hours
+                            if latest_timestamp.date() == today:
+                                # We already have today's complete data
+                                logger.info(f"Market closed, keeping today's intraday data for {symbol}")
+                                return symbol, existing_df
+                            else:
+                                # Missing today's data, try to fetch it
+                                from_date = latest_timestamp.replace(tzinfo=None)
+                                logger.info(f"Fetching missing intraday data for {symbol} after market hours")
                     
                     logger.info(f"Found existing data for {symbol}, last timestamp: {latest_timestamp}")
-                    
-                    # If we're up to date and it's not today or not market hours, return existing data
-                    if from_date.date() > now.date():
-                        logger.info(f"Data for {symbol} is already up to date")
-                        return symbol, existing_df
             
             # Calculate to_date
             to_date = now.replace(tzinfo=None)

@@ -17,11 +17,11 @@ macd:
   signal_period: 9
   slow_period: 26
 performance:
-  cagr: 0.9211428764397622
-  final_capital: 1040748.9295507326
+  cagr: 0.921055754085498
+  final_capital: 1040745.0159840191
   max_drawdown: 0.0
-  realized_pnl: 40748.92955073256
-  sharpe_ratio: 4.442007927875812
+  realized_pnl: 40745.01598401911
+  sharpe_ratio: 4.440574091629496
   total_trades: 4
   win_rate: 100.0
 risk_management:

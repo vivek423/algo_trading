@@ -143,142 +143,112 @@ def run_stock_grid_search(input_data_path: Optional[str] = None,
         # Run grid search
         results = optimizer.run_grid_search(max_combinations)
         
-        # Check if we got valid results
-        if not results:
-            logger.warning(f"No valid grid search results for {stock_symbol}")
+        best_valid_params = None
+        best_valid_result = None
+        chosen_params = None
+        config_source = "default" # Assume default initially
+        
+        # Get default parameters in case we need them
+        default_params = get_default_parameters()
+        stock_config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'stock_configs')
+
+        if results:
+            logger.info(f"Grid search complete for {stock_symbol}. Evaluating {len(results)} valid combinations...")
             
-            # Create default parameters for the stock
-            default_params = get_default_parameters()
+            min_trades_threshold = 10
             
-            # Save default configuration - fallback to ensure we have a config file
-            stock_config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'stock_configs')
-            config_path = save_stock_config(stock_symbol, default_params, stock_config_dir)
+            # Find the best result meeting the trade threshold
+            for result in results:
+                # Check both potential keys for trade count for robustness
+                trade_count = result.get('total_trades', result.get('num_trades', 0))
+                
+                if trade_count >= min_trades_threshold:
+                    best_valid_result = result
+                    best_valid_params = result.get('params')
+                    logger.info(f"Found best configuration for {stock_symbol} meeting trade threshold ({trade_count} trades).")
+                    break # Stop at the first (best) valid result
             
-            logger.info(f"Created default configuration for {stock_symbol} at {config_path}")
-            
-            # Return basic result with default parameters
+            if best_valid_params:
+                chosen_params = best_valid_params
+                config_source = "optimized"
+                # Log details of the chosen optimal configuration
+                logger.info(f"Selected Optimal Configuration for {stock_symbol}:")
+                logger.info(f"  Metric ({metric}): {best_valid_result.get(metric, 'N/A')}")
+                logger.info(f"  Trades: {trade_count}")
+                logger.info(f"  Win Rate: {best_valid_result.get('win_rate', 0):.2f}%")
+                logger.info(f"  Sharpe Ratio: {best_valid_result.get('sharpe_ratio', 0):.2f}")
+                logger.info(f"  CAGR: {best_valid_result.get('cagr', 0):.2f}%")
+                logger.info(f"  Max Drawdown: {best_valid_result.get('max_drawdown', 0):.2f}%")
+                pnl = best_valid_result.get('realized_pnl', best_valid_result.get('final_capital', initial_capital) - initial_capital)
+                logger.info(f"  Profit & Loss: ₹{pnl:.2f}")
+            else:
+                logger.warning(f"No configuration for {stock_symbol} met the minimum trade threshold of {min_trades_threshold}.")
+                logger.info(f"Using default parameters for {stock_symbol}.")
+                chosen_params = default_params
+                config_source = "default (low trades)"
+        else:
+            # No valid grid search results at all
+            logger.warning(f"No valid grid search results found for {stock_symbol}.")
+            logger.info(f"Using default parameters for {stock_symbol}.")
+            chosen_params = default_params
+            config_source = "default (no results)"
+
+        # Save the chosen configuration (either optimal or default)
+        config_path = save_stock_config(stock_symbol, chosen_params, stock_config_dir)
+        logger.info(f"Saved {config_source} configuration for {stock_symbol} to {config_path}")
+        
+        # Return details based on the chosen configuration
+        if config_source == "optimized" and best_valid_result:
+             # Return the metrics from the chosen optimal result
+             trade_count = best_valid_result.get('total_trades', best_valid_result.get('num_trades', 0))
+             pnl = best_valid_result.get('realized_pnl', best_valid_result.get('final_capital', initial_capital) - initial_capital)
+             final_capital_val = best_valid_result.get('final_capital', initial_capital + pnl)
+             
+             return {
+                'symbol': stock_symbol,
+                'metric': metric,
+                'value': best_valid_result.get(metric, 0),
+                'params': chosen_params,
+                'num_trades': trade_count,
+                'win_rate': best_valid_result.get('win_rate', 0),
+                'final_capital': final_capital_val,
+                'realized_pnl': pnl,
+                'config_path': config_path,
+                'config_source': config_source # Added source info
+            }
+        else:
+            # Return basic result indicating default parameters were used
             return {
                 'symbol': stock_symbol,
                 'metric': metric,
-                'value': 0,
-                'params': default_params,
+                'value': 0, # Default value if no optimization
+                'params': chosen_params,
                 'num_trades': 0,
                 'win_rate': 0,
                 'final_capital': initial_capital,
                 'realized_pnl': 0,
-                'config_path': config_path
+                'config_path': config_path,
+                'config_source': config_source # Added source info
             }
         
-        # If we have results, log some details about them
-        logger.info(f"Grid search complete for {stock_symbol}. {len(results)} valid combinations found.")
-        logger.info(f"Top {min(3, len(results))} configurations:")
-        
-        # Log top configurations
-        for i, result in enumerate(results[:3]):
-            logger.info(f"Configuration {i+1}:")
-            logger.info(f"  Metric ({metric}): {result.get(metric, 0)}")
-            
-            # Safely access trades count
-            if 'num_trades' in result:
-                logger.info(f"  Trades: {result['num_trades']}")
-            elif 'total_trades' in result:
-                logger.info(f"  Trades: {result['total_trades']}")
-            else:
-                logger.info(f"  Trades: Unknown")
-            
-            # Use get() with defaults for safe access to dictionary keys
-            logger.info(f"  Win Rate: {result.get('win_rate', 0):.2f}%")
-            logger.info(f"  Sharpe Ratio: {result.get('sharpe_ratio', 0):.2f}")
-            logger.info(f"  CAGR: {result.get('cagr', 0):.2f}%")
-            logger.info(f"  Max Drawdown: {result.get('max_drawdown', 0):.2f}%")
-            
-            # Handle different key names for profit/loss
-            if 'realized_pnl' in result:
-                logger.info(f"  Profit & Loss: ₹{result['realized_pnl']:.2f}")
-            else:
-                logger.info(f"  Profit & Loss: ₹{result.get('final_capital', 0) - initial_capital:.2f}")
-                
-            # Handle different parameter key names
-            if 'params' in result:
-                logger.info(f"  Parameters: {result['params']}")
-            elif 'parameters' in result:
-                logger.info(f"  Parameters: {result['parameters']}")
-            else:
-                logger.info(f"  Parameters: Unknown")
-                
-            logger.info("-----")
-            
-        # Save the best configuration
-        best_result = results[0]
-        logger.info(f"Best configuration for {stock_symbol}:")
-        logger.info(f"  Metric: {metric}")
-        logger.info(f"  Value: {best_result.get(metric, 0)}")
-        
-        # Debug the best_result keys
-        logger.debug(f"Best result keys: {list(best_result.keys())}")
-        
-        # Extract parameters from appropriate key
-        if 'params' in best_result:
-            best_params = best_result['params']
-        elif 'parameters' in best_result:
-            best_params = best_result['parameters']
-        else:
-            # Look through all keys for anything that might be parameters
-            parameter_keys = [k for k in best_result.keys() if 'param' in k.lower()]
-            if parameter_keys:
-                best_params = best_result[parameter_keys[0]]
-            else:
-                logger.warning(f"Unable to find parameters in grid search result. Available keys: {list(best_result.keys())}")
-                best_params = get_default_parameters()
-        
-        # Save the configuration to file
-        stock_config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'stock_configs')
-        config_path = save_stock_config(stock_symbol, best_params, stock_config_dir)
-        
-        logger.info(f"Saved configuration to {config_path}")
-        
-        # Standardize result fields for return
-        num_trades = best_result.get('num_trades', best_result.get('total_trades', 0))
-        final_capital = best_result.get('final_capital', 0)
-        realized_pnl = best_result.get('realized_pnl', final_capital - initial_capital)
-        
-        return {
-            'symbol': stock_symbol,
-            'metric': metric,
-            'value': best_result.get(metric, 0),
-            'params': best_params,
-            'num_trades': num_trades,
-            'win_rate': best_result.get('win_rate', 0),
-            'final_capital': final_capital,
-            'realized_pnl': realized_pnl,
-            'config_path': config_path
-        }
-        
     except Exception as e:
-        logger.error(f"Error running grid search for {stock_symbol}: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Grid search failed for {stock_symbol}: {str(e)}")
+        logger.error(traceback.format_exc())
         
-        # Create default parameters for the stock
-        default_params = get_default_parameters()
-        
-        # Save default configuration even if grid search failed
-        stock_config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'stock_configs')
-        config_path = save_stock_config(stock_symbol, default_params, stock_config_dir)
-        
-        logger.info(f"Created default configuration for {stock_symbol} due to error: {config_path}")
-        
-        # Return basic result with default parameters
-        return {
-            'symbol': stock_symbol,
-            'metric': metric,
-            'value': 0,
-            'params': default_params,
-            'num_trades': 0,
-            'win_rate': 0,
-            'final_capital': initial_capital,
-            'realized_pnl': 0,
-            'config_path': config_path
-        }
+        # Fallback: Save default configuration on error during search
+        try:
+            logger.info(f"Attempting to save default config for {stock_symbol} due to error.")
+            default_params = get_default_parameters()
+            stock_config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config', 'stock_configs')
+            config_path = save_stock_config(stock_symbol, default_params, stock_config_dir)
+            return {
+                'symbol': stock_symbol, 'metric': metric, 'value': 0, 'params': default_params, 
+                'num_trades': 0, 'win_rate': 0, 'final_capital': initial_capital, 'realized_pnl': 0,
+                'config_path': config_path, 'config_source': 'default (error)'
+            }
+        except Exception as e_save:
+            logger.error(f"Failed to save default config for {stock_symbol} after error: {str(e_save)}")
+            return None # Indicate failure
 
 def get_default_parameters():
     """Return default technical analysis parameters."""
@@ -554,7 +524,7 @@ def run_grid_search(df, param_grid, initial_capital, max_investment):
             # Clean up
             if config_path and os.path.exists(config_path):
                 os.unlink(config_path)
-                
+            
         except Exception as e:
             logging.error(f"Error testing combination {i}: {str(e)}")
             continue
