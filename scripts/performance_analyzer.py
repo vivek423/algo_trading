@@ -33,19 +33,21 @@ class Trade:
     quantity: int
     stop_loss: float
     take_profit: float
+    position_type: str = 'long'  # 'long' or 'short'
     exit_date: Optional[pd.Timestamp] = None
     exit_price: Optional[float] = None
     exit_reason: Optional[str] = None
     pnl: Optional[float] = None
 
 class PerformanceAnalyzer:
-    def __init__(self, max_investment: float = 5000, position_size_pct: float = 15.0):
+    def __init__(self, max_investment: float = 5000, position_size_pct: float = 15.0, enable_short_selling: bool = False):
         """
         Initialize PerformanceAnalyzer with maximum investment amount.
         
         Args:
             max_investment: Maximum investment per trade (used as hard cap)
             position_size_pct: Maximum percentage of available capital to use per trade (default: 15%)
+            enable_short_selling: Whether to enable short selling (default: False)
         """
         self.max_investment = max_investment
         self.position_size_pct = min(position_size_pct, 100.0)  # Cap at 100%
@@ -53,6 +55,8 @@ class PerformanceAnalyzer:
         self.initial_capital = 0
         self.trades: List[Trade] = []
         self.active_trades: Dict[str, Trade] = {}  # symbol -> Trade
+        self.enable_short_selling = enable_short_selling
+        logger.info(f"Short selling is {'enabled' if enable_short_selling else 'disabled'}")
         
     def calculate_quantity(self, price: float) -> int:
         """Calculate quantity of shares to buy based on price, max investment, and position sizing"""
@@ -116,21 +120,36 @@ class PerformanceAnalyzer:
                 if not stock_data.empty:
                     row = stock_data.iloc[0]
                     
-                    # Check stop loss
-                    if row['low'] <= trade.stop_loss:
-                        self._close_trade(trade, pd.Timestamp(date), trade.stop_loss, 'stop_loss')
-                        continue
-                        
-                    # Check take profit
-                    if row['high'] >= trade.take_profit:
-                        self._close_trade(trade, pd.Timestamp(date), trade.take_profit, 'take_profit')
-                        continue
+                    # Check stop loss and take profit based on position type
+                    if trade.position_type == 'long':
+                        # Long position: stop loss is below entry price, take profit is above
+                        if row['low'] <= trade.stop_loss:
+                            self._close_trade(trade, pd.Timestamp(date), trade.stop_loss, 'stop_loss')
+                            continue
+                            
+                        if row['high'] >= trade.take_profit:
+                            self._close_trade(trade, pd.Timestamp(date), trade.take_profit, 'take_profit')
+                            continue
+                    else:  # Short position
+                        # Short position: stop loss is above entry price, take profit is below
+                        if row['high'] >= trade.stop_loss:
+                            self._close_trade(trade, pd.Timestamp(date), trade.stop_loss, 'stop_loss')
+                            continue
+                            
+                        if row['low'] <= trade.take_profit:
+                            self._close_trade(trade, pd.Timestamp(date), trade.take_profit, 'take_profit')
+                            continue
             
             # Then check for new entry signals
             for _, row in day_data.iterrows():
                 symbol = row['symbol']
                 
-                if row['signal_combined'] == 1 and symbol not in self.active_trades:
+                # Skip if we already have an active trade for this symbol
+                if symbol in self.active_trades:
+                    continue
+                
+                # Check for long entry signals
+                if row['signal_combined'] == 1:
                     # Check if we have data for the next day
                     next_day_data = df[(df['timestamp'] > date) & (df['symbol'] == symbol)]
                     if len(next_day_data) > 0:
@@ -143,14 +162,15 @@ class PerformanceAnalyzer:
                         
                         # Check if we have enough cash and quantity > 0
                         if quantity > 0 and self.cash_balance >= trade_cost:
-                            # Create new trade
+                            # Create new long trade
                             trade = Trade(
                                 symbol=symbol,
                                 entry_date=entry_date,
                                 entry_price=entry_price,
                                 quantity=quantity,
                                 stop_loss=row['stop_loss'],
-                                take_profit=row['take_profit']
+                                take_profit=row['take_profit'],
+                                position_type='long'
                             )
                             
                             # Update cash balance
@@ -160,9 +180,52 @@ class PerformanceAnalyzer:
                             self.active_trades[symbol] = trade
                             self.trades.append(trade)
                             
-                            logger.debug(f"New trade: {symbol}, Entry date: {entry_date}, Entry price: {entry_price}, Quantity: {quantity}, Cost: ₹{trade_cost:,.2f}, Remaining cash: ₹{self.cash_balance:,.2f}")
+                            logger.debug(f"New LONG trade: {symbol}, Entry date: {entry_date}, Entry price: {entry_price}, Quantity: {quantity}, Cost: ₹{trade_cost:,.2f}, Remaining cash: ₹{self.cash_balance:,.2f}")
                         else:
-                            logger.debug(f"Skipped trade for {symbol} at {entry_date}: Insufficient cash (₹{self.cash_balance:,.2f}) for trade cost (₹{trade_cost:,.2f}) or quantity ({quantity}) too low")
+                            logger.debug(f"Skipped LONG trade for {symbol} at {entry_date}: Insufficient cash (₹{self.cash_balance:,.2f}) for trade cost (₹{trade_cost:,.2f}) or quantity ({quantity}) too low")
+                
+                # Check for short entry signals if short selling is enabled
+                elif row['signal_combined'] == -1 and self.enable_short_selling:
+                    # Check if we have data for the next day
+                    next_day_data = df[(df['timestamp'] > date) & (df['symbol'] == symbol)]
+                    if len(next_day_data) > 0:
+                        entry_price = next_day_data.iloc[0]['open']
+                        entry_date = pd.Timestamp(next_day_data.iloc[0]['timestamp'])
+                        
+                        # Calculate quantity based on available cash
+                        quantity = self.calculate_quantity(entry_price)
+                        # For short positions, we initially receive cash from selling borrowed shares
+                        # but we're still risking the same amount, so we check if we have enough cash as collateral
+                        trade_value = entry_price * quantity
+                        
+                        # Check if we have enough cash as collateral and quantity > 0
+                        if quantity > 0 and self.cash_balance >= trade_value:
+                            # For short positions, stop loss and take profit are reversed
+                            # Stop loss is above entry price, take profit is below
+                            stop_loss = row.get('short_stop_loss', entry_price * 1.05)  # Default to 5% above if not specified
+                            take_profit = row.get('short_take_profit', entry_price * 0.95)  # Default to 5% below if not specified
+                            
+                            # Create new short trade
+                            trade = Trade(
+                                symbol=symbol,
+                                entry_date=entry_date,
+                                entry_price=entry_price,
+                                quantity=quantity,
+                                stop_loss=stop_loss,
+                                take_profit=take_profit,
+                                position_type='short'
+                            )
+                            
+                            # For short selling, we receive cash initially but keep the same amount as collateral
+                            # so effectively our cash balance doesn't change initially
+                            
+                            # Record the trade
+                            self.active_trades[symbol] = trade
+                            self.trades.append(trade)
+                            
+                            logger.debug(f"New SHORT trade: {symbol}, Entry date: {entry_date}, Entry price: {entry_price}, Quantity: {quantity}, Value: ₹{trade_value:,.2f}, Remaining cash: ₹{self.cash_balance:,.2f}")
+                        else:
+                            logger.debug(f"Skipped SHORT trade for {symbol} at {entry_date}: Insufficient collateral (₹{self.cash_balance:,.2f}) for trade value (₹{trade_value:,.2f}) or quantity ({quantity}) too low")
             
         # Close any remaining active trades with the last available price
         for symbol, trade in list(self.active_trades.items()):
@@ -191,14 +254,31 @@ class PerformanceAnalyzer:
         trade.exit_date = exit_date
         trade.exit_price = exit_price
         trade.exit_reason = reason
-        trade.pnl = (exit_price - trade.entry_price) * trade.quantity
+        
+        # Calculate P&L based on position type
+        if trade.position_type == 'long':
+            # For long positions, profit when exit price > entry price
+            trade.pnl = (exit_price - trade.entry_price) * trade.quantity
+        else:  # Short position
+            # For short positions, profit when exit price < entry price
+            trade.pnl = (trade.entry_price - exit_price) * trade.quantity
         
         # Update cash balance when closing the trade
-        proceeds = exit_price * trade.quantity
-        self.cash_balance += proceeds
+        if trade.position_type == 'long':
+            # For long positions, we receive the exit price * quantity
+            proceeds = exit_price * trade.quantity
+            self.cash_balance += proceeds
+        else:  # Short position
+            # For short positions, we pay the exit price * quantity to buy back shares
+            # and receive back our collateral (which was the entry price * quantity)
+            buy_back_cost = exit_price * trade.quantity
+            self.cash_balance -= buy_back_cost
+            # Add the profit or loss
+            self.cash_balance += trade.pnl
         
         # Log trade closure for debugging
-        logger.debug(f"Closed trade: {trade.symbol}, Entry: {trade.entry_date}, Exit: {exit_date}, PnL: {trade.pnl:,.2f}, Proceeds: ₹{proceeds:,.2f}, New cash balance: ₹{self.cash_balance:,.2f}")
+        position_type_str = "LONG" if trade.position_type == 'long' else "SHORT"
+        logger.debug(f"Closed {position_type_str} trade: {trade.symbol}, Entry: {trade.entry_date}, Exit: {exit_date}, PnL: {trade.pnl:,.2f}, New cash balance: ₹{self.cash_balance:,.2f}")
         
         # Remove from active trades
         if trade.symbol in self.active_trades:
@@ -637,6 +717,7 @@ def main():
     parser.add_argument('--metric', choices=['sharpe_ratio', 'cagr', 'win_rate', 'total_pnl'], 
                         default='sharpe_ratio', help='Performance metric to optimize')
     parser.add_argument('--output', type=str, help='Output directory for results (default: data/outputs/performance)')
+    parser.add_argument('--enable-short-selling', action='store_true', help='Enable short selling in addition to long positions')
     
     args = parser.parse_args()
     
@@ -661,7 +742,8 @@ def main():
         # Initialize performance analyzer
         analyzer = PerformanceAnalyzer(
             max_investment=args.max_investment,
-            position_size_pct=args.position_size_pct
+            position_size_pct=args.position_size_pct,
+            enable_short_selling=args.enable_short_selling
         )
         
         # Log initial capital
